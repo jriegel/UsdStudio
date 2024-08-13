@@ -1,0 +1,22 @@
+<RCC>
+    <qresource prefix="/">
+        <file>Resources/images/new.png</file>
+        <file>Resources/images/open.png</file>
+        <file>Resources/images/import.png</file>
+        <file>Resources/images/save.png</file>
+        <file>Resources/images/undo.png</file>
+        <file>Resources/images/plus.png</file>
+        <file>Resources/images/minus.png</file>
+        <file>Resources/images/view_all.png</file>
+        <file>Resources/images/loupe.png</file>
+        <file>Resources/images/resize.png</file>
+        <file>Resources/images/Icon128.png</file>
+        <file>Resources/images/link_bl.png</file>
+        <file>Resources/images/link_gn.png</file>
+        <file>Resources/images/link_or.png</file>
+        <file>Resources/images/back.png</file>
+        <file>Resources/images/next.png</file>
+        <file alias="stylesheet.qss">Resources/darkorange.stylesheet</file>
+        <file>Default.qml</file>
+    </qresource>
+</RCC>

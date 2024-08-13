@@ -1,0 +1,4 @@
+[submodule "thirdParty/OpenUSD"]
+	path = thirdParty/OpenUSD
+	url = https://github.com/PixarAnimationStudios/OpenUSD.git
+	branch = release
