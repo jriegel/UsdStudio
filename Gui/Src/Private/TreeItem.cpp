@@ -1,11 +1,11 @@
-
+// (c)2024 Juergen Riegel, mail@juergen-riegel.net
 
 
 #include "../Public/TreeItem.h"
 #include <QString>
 
 
-UberTreeItem::UberTreeItem(unsigned int uberId, UberTreeItem *parent, int rowInParent)
+TreeItem::TreeItem(unsigned int uberId, TreeItem *parent, int rowInParent)
 	:ParentItem(parent), UberId(uberId), RowInParent(rowInParent)
 {
 	InProgress.store(false);
@@ -13,12 +13,12 @@ UberTreeItem::UberTreeItem(unsigned int uberId, UberTreeItem *parent, int rowInP
 }
 
 
-UberTreeItem::~UberTreeItem()
+TreeItem::~TreeItem()
 {
 	deleteChildren();
 }
 
-void UberTreeItem::deleteChildren()
+void TreeItem::deleteChildren()
 {
 	for (auto i : ChildItems)
 		delete (i);
@@ -27,7 +27,7 @@ void UberTreeItem::deleteChildren()
 
 
 
-QVariant UberTreeItem::data(int Column)const
+QVariant TreeItem::data(int Column)const
 {
 	return QVariant(QString::fromUtf8(Name.c_str()));
 }

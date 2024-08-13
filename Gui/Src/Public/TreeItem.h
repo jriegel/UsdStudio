@@ -1,3 +1,4 @@
+// (c)2024 Juergen Riegel, mail@juergen-riegel.net
 #pragma once
 
 #include <vector>
@@ -5,11 +6,11 @@
 #include <QVariant>
 
 
-class UberTreeItem
+class TreeItem
 {
 public:
-    explicit UberTreeItem(unsigned int uberId, UberTreeItem *parent, int rowInParent);
-    ~UberTreeItem();
+    explicit TreeItem(unsigned int uberId, TreeItem *parent, int rowInParent);
+    ~TreeItem();
 
 	void deleteChildren();
 
@@ -20,7 +21,7 @@ public:
 	std::string Name;
 
 	unsigned int UberId;
-	std::vector<UberTreeItem*> ChildItems;
+	std::vector<TreeItem*> ChildItems;
 
 	enum NodeVisibility {
 		hidden = 0,
@@ -30,7 +31,7 @@ public:
 		invalid = 4
 	}VisibilityState;
 
-    UberTreeItem *ParentItem;
+    TreeItem *ParentItem;
 	unsigned int RowInParent=0;
 	std::atomic<bool> InProgress;
 	std::atomic<bool> Filled;

@@ -1,4 +1,4 @@
-#pragma once
+// (c)2024 Juergen Riegel, mail@juergen-riegel.net
 
 #include "../Public/ModelAdaptor.h"
 #include "../Public/TreeItem.h"
@@ -27,14 +27,14 @@ void ModelAdaptor::setSearchText(QString searchText)
 
 }
 
-void ModelAdaptor::setVisibility(UberTreeItem * item)
+void ModelAdaptor::setVisibility(TreeItem * item)
 {
 	
 
 }
 
 
-void ModelAdaptor::getItemUpdate(UberTreeItem *item)
+void ModelAdaptor::getItemUpdate(TreeItem *item)
 {
 	
 

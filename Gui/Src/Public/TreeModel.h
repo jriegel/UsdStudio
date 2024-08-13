@@ -1,3 +1,4 @@
+// (c)2024 Juergen Riegel, mail@juergen-riegel.net
 #pragma once
 
 
@@ -5,7 +6,7 @@
 #include <QModelIndex>
 #include <QVariant>
 
-class UberTreeItem;
+class TreeItem;
 class ModelAdaptor;
 
 
@@ -35,11 +36,11 @@ public:
 
 public slots:
 	void slotSceneGraphLoaded();
-	void slotItemUpdate(UberTreeItem *item);
+	void slotItemUpdate(TreeItem *item);
 
 private:
 
-    UberTreeItem *rootItem;
+    TreeItem *rootItem;
 	unsigned int _SceneId;
 
 	ModelAdaptor *_adaptor;

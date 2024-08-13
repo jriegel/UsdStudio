@@ -1,3 +1,4 @@
+// (c)2024 Juergen Riegel, mail@juergen-riegel.net
 #pragma once
 
 #include <vector>
@@ -6,7 +7,7 @@
 
 
 
-class UberTreeItem;
+class TreeItem;
 
 class ModelAdaptor: public QObject
 {
@@ -15,13 +16,13 @@ class ModelAdaptor: public QObject
 public:
     explicit ModelAdaptor(unsigned int SceneId);
 
-	void getItemUpdate(UberTreeItem *item);
+	void getItemUpdate(TreeItem *item);
 
 	void setSearchText(QString searchText);
-	void setVisibility(UberTreeItem *item);
+	void setVisibility(TreeItem *item);
 
 signals:
-	void signalItemUpdate(UberTreeItem *item);
+	void signalItemUpdate(TreeItem *item);
 
 private:
 	unsigned int _SceneId;

@@ -1,3 +1,6 @@
+// (c)2024 Juergen Riegel, mail@juergen-riegel.net
+
+
 #include "../Public/TreeModel.h"
 #include "../Public/TreeItem.h"
 #include "../Public/ModelAdaptor.h"
@@ -7,7 +10,7 @@ TreeModel::TreeModel(ModelAdaptor *adaptor, QObject *parent)
     : QAbstractItemModel(parent), _adaptor(adaptor)
 {
 	// create root object wrapper, 1 is root object id in Uber
-	rootItem = new UberTreeItem(1, nullptr,0);
+	rootItem = new TreeItem(1, nullptr,0);
 
 	QObject::connect(_adaptor, &ModelAdaptor::signalItemUpdate, this, &TreeModel::slotItemUpdate, Qt::QueuedConnection);
 
@@ -27,7 +30,7 @@ TreeModel::~TreeModel()
 int TreeModel::columnCount(const QModelIndex &parent) const
 {
     if (parent.isValid())
-        return static_cast<UberTreeItem*>(parent.internalPointer())->columnCount();
+        return static_cast<TreeItem*>(parent.internalPointer())->columnCount();
     else
         return rootItem->columnCount();
 }
@@ -39,13 +42,13 @@ QVariant TreeModel::data(const QModelIndex &index, int role) const
     if (!index.isValid())
         return QVariant();
 
-	UberTreeItem *item = static_cast<UberTreeItem*>(index.internalPointer());
+	TreeItem *item = static_cast<TreeItem*>(index.internalPointer());
 
 	if (role == Qt::CheckStateRole && index.column() == 0)
 		switch (item->VisibilityState) {
-		case UberTreeItem::hidden: return  Qt::Unchecked;
-		case UberTreeItem::visible: return  Qt::Checked;
-		case UberTreeItem::partially_visible: return  Qt::PartiallyChecked;
+		case TreeItem::hidden: return  Qt::Unchecked;
+		case TreeItem::visible: return  Qt::Checked;
+		case TreeItem::partially_visible: return  Qt::PartiallyChecked;
 		default: return  Qt::Checked;
 		}
 
@@ -57,7 +60,7 @@ QVariant TreeModel::data(const QModelIndex &index, int role) const
 		return QVariant("Loading...");
 
 
-	for (UberTreeItem *actItem : item->ChildItems)
+	for (TreeItem *actItem : item->ChildItems)
 		if(!actItem->Filled.load() && !actItem->InProgress.load())
 			_adaptor->getItemUpdate(actItem);
 
@@ -68,17 +71,17 @@ bool TreeModel::setData(const QModelIndex &index, const QVariant &value, int rol
 {
 	if (role == Qt::CheckStateRole && index.column() == 0) {
 
-		UberTreeItem *item = static_cast<UberTreeItem*>(index.internalPointer());
+		TreeItem *item = static_cast<TreeItem*>(index.internalPointer());
 
 		if ((Qt::CheckState)value.toInt() == Qt::Checked)
 		{
-			item->VisibilityState = UberTreeItem::visible;
+			item->VisibilityState = TreeItem::visible;
 			_adaptor->setVisibility(item);
 			return true;
 		}
 		else
 		{
-			item->VisibilityState = UberTreeItem::hidden;
+			item->VisibilityState = TreeItem::hidden;
 			_adaptor->setVisibility(item);
 			return true;
 		}
@@ -124,18 +127,18 @@ QModelIndex TreeModel::index(int row, int column, const QModelIndex &parent)
     if (!hasIndex(row, column, parent))
         return QModelIndex();
 
-    UberTreeItem *parentItem;
+    TreeItem *parentItem;
 
     if (!parent.isValid())
         parentItem = rootItem;
     else
-        parentItem = static_cast<UberTreeItem*>(parent.internalPointer());
+        parentItem = static_cast<TreeItem*>(parent.internalPointer());
 
 	if (parentItem->InProgress.load())
 		return QModelIndex();
 
 	if (row < parentItem->ChildItems.size()) {
-		UberTreeItem *childItem = parentItem->ChildItems[row];
+		TreeItem *childItem = parentItem->ChildItems[row];
 		return createIndex(row, column, childItem);
 	}
 	else
@@ -149,8 +152,8 @@ QModelIndex TreeModel::parent(const QModelIndex &index) const
     if (!index.isValid())
         return QModelIndex();
 
-    UberTreeItem *childItem = static_cast<UberTreeItem*>(index.internalPointer());
-    UberTreeItem *parentItem = childItem->ParentItem;
+    TreeItem *childItem = static_cast<TreeItem*>(index.internalPointer());
+    TreeItem *parentItem = childItem->ParentItem;
 
     if (parentItem == rootItem)
         return QModelIndex();
@@ -161,14 +164,14 @@ QModelIndex TreeModel::parent(const QModelIndex &index) const
 
 int TreeModel::rowCount(const QModelIndex &parent) const
 {
-    UberTreeItem *parentItem;
+    TreeItem *parentItem;
     if (parent.column() > 0)
         return 0;
 
     if (!parent.isValid())
         parentItem = rootItem;
     else
-        parentItem = static_cast<UberTreeItem*>(parent.internalPointer());
+        parentItem = static_cast<TreeItem*>(parent.internalPointer());
 
 	if (parentItem->InProgress.load())
 		return 0;
@@ -183,7 +186,7 @@ void TreeModel::slotSceneGraphLoaded()
 
 }
 
-void TreeModel::slotItemUpdate(UberTreeItem *item)
+void TreeModel::slotItemUpdate(TreeItem *item)
 {
 	if (item->InProgress.load())
 		return;
@@ -193,7 +196,7 @@ void TreeModel::slotItemUpdate(UberTreeItem *item)
 		emit dataChanged(index,index);
 	}
 	else {
-		for (UberTreeItem *actItem : item->ChildItems )
+		for (TreeItem *actItem : item->ChildItems )
 			_adaptor->getItemUpdate(actItem);
 		beginResetModel();
 		endResetModel();
@@ -211,7 +214,7 @@ void TreeModel::updateRoot()
 QString TreeModel::getPathByIndex(const QModelIndex & index)
 {
 	QString result;
-	UberTreeItem *Item = static_cast<UberTreeItem*>( index.internalPointer());
+	TreeItem *Item = static_cast<TreeItem*>( index.internalPointer());
 	result.insert(0, Item->Name.c_str());
 	while (Item->ParentItem != 0) {
 		Item = Item->ParentItem;
@@ -225,6 +228,6 @@ QString TreeModel::getPathByIndex(const QModelIndex & index)
 
 int TreeModel::getRenderIdByIndex(const QModelIndex & index)
 {
-	return static_cast<UberTreeItem*>(index.internalPointer())->UberId;
+	return static_cast<TreeItem*>(index.internalPointer())->UberId;
 }
 

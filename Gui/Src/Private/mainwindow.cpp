@@ -1,4 +1,4 @@
-// (c)2018 Juergen Riegel, Daimler Protics GmbH, Juergen.Riegel@daimler.com
+// (c)2024 Juergen Riegel, mail@juergen-riegel.net
 
 #include "../Public/mainwindow.h"
 

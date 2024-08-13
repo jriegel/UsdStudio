@@ -1,8 +1,4 @@
-# (c)2018 Juergen Riegel, Daimler Protics GmbH, Juergen.Riegel@daimler.com
-# Instruct CMake to run moc automatically when needed.
-
-
-
+# (c)2024 Juergen Riegel, mail@juergen-riegel.net
 
 set(MAIN_SRC
   main.cpp
