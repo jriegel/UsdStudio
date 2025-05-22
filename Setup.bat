@@ -40,6 +40,7 @@ if exist "C:\Program Files\Microsoft Visual Studio\2022\Community" (
 )
 echo Using cMake generator: %GENERATOR_STRING%
 
+echo  [94mGenerate cMake[0m
 
 cmake.exe ^
 	-B WinBuild ^
@@ -48,7 +49,55 @@ cmake.exe ^
 	-DCMAKE_TOOLCHAIN_FILE=%VCPKG_DIR%/scripts/buildsystems/vcpkg.cmake ^
 	-DVCPKG_TARGET_TRIPLET=x64-windows  ^
 	.
+IF %ERRORLEVEL% NEQ 0 (
+    ECHO [91mERROR: cMake generation![0m
+    pause
+    exit 1
+)
 
 
 
+echo  [94m Initial build RelWithDebInfo[0m
 
+cmake.exe ^
+	--build ^
+	WinBuild ^
+	--config RelWithDebInfo 
+	
+IF %ERRORLEVEL% NEQ 0 (
+    ECHO [91mERROR: cMake Build ![0m
+    pause
+    exit 1
+)
+
+md WinBuild\bin\RelWithDebInfo\lib\usd
+xcopy /Y thirdParty\USD-Build\lib\*.dll WinBuild\bin\RelWithDebInfo\
+xcopy /Y thirdParty\USD-Build\lib\*.pdb WinBuild\bin\RelWithDebInfo\
+xcopy /s /Y thirdParty\USD-Build\lib\usd WinBuild\bin\RelWithDebInfo\lib\usd
+xcopy /s /Y thirdParty\USD-Build\bin\ WinBuild\bin\RelWithDebInfo\
+call WinBuild\vcpkg_installed\x64-windows\tools\Qt6\bin\windeployqt6.exe WinBuild\bin\RelWithDebInfo\UsdStudio.exe
+
+
+rem debug not working so far
+goto End
+
+echo  [94m Initial build Debug[0m
+
+cmake.exe ^
+	--build ^
+	WinBuild ^
+	--config Debug 
+	
+IF %ERRORLEVEL% NEQ 0 (
+    ECHO [91m ERROR: cMake generation![0m
+    pause
+    exit 1
+)
+
+call WinBuild\vcpkg_installed\x64-windows\tools\Qt6\bin\windeployqt.debug.bat WinBuild\bin\Debug\UsdStudio.exe
+
+:End
+
+echo 
+
+echo  [94m Finish Setup Developer Environment[0m

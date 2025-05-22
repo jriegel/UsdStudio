@@ -50,6 +50,7 @@ endif()
 
 target_link_libraries (UsdStudioGuiLib 
 	PRIVATE  
+	    UsdStudioAppLib 
 		Qt6::Core 
 		Qt6::Widgets 
 		Qt6::Network 
@@ -91,3 +92,8 @@ target_link_libraries (UsdStudioGuiLib
 set_target_properties (UsdStudioGuiLib PROPERTIES PUBLIC_HEADER "${ProjectHeaders}")
 set_target_properties (UsdStudioGuiLib PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/Public")
 
+set_target_properties(UsdStudioGuiLib       PROPERTIES 
+          ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+          LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+          RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+          )

@@ -1,6 +1,6 @@
 # (c)2024 Juergen Riegel, mail@juergen-riegel.net
 
-cmake_minimum_required(VERSION 3.28.0)
+cmake_minimum_required(VERSION 3.30.0)
 
 
 project(UsdStudio)
@@ -13,7 +13,7 @@ option(BUILD_GUI "Build with GUI" ON )
 set(CMAKE_INCLUDE_CURRENT_DIR ON) 
 
 
-find_package (Python3 COMPONENTS Interpreter Development)
+find_package (Python3 REQUIRED COMPONENTS Interpreter Development)
 
 # Find the QtWidgets library
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets Network Quick QuickControls2 QuickWidgets)

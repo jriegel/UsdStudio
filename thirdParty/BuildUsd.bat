@@ -50,10 +50,50 @@ echo Using cMake generator: %GENERATOR_STRING%
 echo  [94mSetup Visual Studio Build env:[0m
 call "%VC_DIR%\VC\Auxiliary\Build\vcvars64.bat"
 
+rem allways clean build
+rmdir /s /q USD-Build
+
 cd OpenUSD
 
-echo  [94mCall USD Build script:[0m
-python build_scripts\build_usd.py %~dp0\USD-Build" 
+echo  [94mCall USD Build script for release:[0m
+python ^
+	build_scripts\build_usd.py ^
+		--build-variant relwithdebuginfo ^
+		--debug-python ^
+		--ptex ^
+		--openvdb ^
+		--embree ^
+		--opencolorio ^
+		--alembic ^
+		--hdf5 ^
+		--draco ^
+		%~dp0\USD-Build" 
+IF %ERRORLEVEL% NEQ 0 (
+    ECHO [91mERROR: build_scripts\build_usd.py returned with error! [0m
+	cd ..
+    pause
+    exit 1
+)
+
+cd ..
+
+echo  [32mBuild finished.[0m
+
+rem exit 0
+
+echo  [94mCall USD Build script for release:[0m
+python ^
+	build_scripts\build_usd.py ^
+		--build-variant debug ^
+		--debug-python ^
+		--ptex ^
+		--openvdb ^
+		--embree ^
+		--opencolorio ^
+		--alembic ^
+		--hdf5 ^
+		--draco ^
+		%~dp0\USD-Dbg-Build" 
 IF %ERRORLEVEL% NEQ 0 (
     ECHO [91mERROR: build_scripts\build_usd.py returned with error! [0m
 	cd ..

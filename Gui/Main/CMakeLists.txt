@@ -10,7 +10,10 @@ source_group("UsdStudio" FILES ${ENGVIEWER_SRC})
 # Tell CMake to create the UsdStudio executable
 add_executable(UsdStudio WIN32 ${MAIN_SRC}  )
 
-add_dependencies(UsdStudio UsdStudioGuiLib)
+add_dependencies(UsdStudio 
+	UsdStudioGuiLib
+	Python3::InterpreterMultiConfig
+)
 
 set_property(TARGET UsdStudio PROPERTY CXX_STANDARD 20)
 if(WIN32)
@@ -50,16 +53,9 @@ target_link_libraries(UsdStudio
 		work
 ) 
 
+  set_target_properties(UsdStudio       PROPERTIES 
+          ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+          LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+          RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+          )
 
-add_custom_command(TARGET UsdStudio
-	COMMAND ${WINDEPLOYQT_EXECUTABLE} "$<TARGET_FILE_DIR:UsdStudio>/$<TARGET_FILE_NAME:UsdStudio>" 
-
-#	POST_BUILD
-#	#### Copy the required plugins to the binary directory. ####
-#	#### Mandatory for the application to run. ####
-#	COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/lib/usd/"
-#	
-#	# Easy solution: copy all directories from "/lib/usd" of OpenUSD installed
-#	# by vcpkg to the "/lib/usd" of your application.
-#	COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different  "${CMAKE_BINARY_DIR}/vcpkg_installed/x64-windows/lib/usd" "${CMAKE_BINARY_DIR}/lib/usd"
-)

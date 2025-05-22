@@ -9,6 +9,9 @@
             "name": "qtquickcontrols2"
         },
         {
+            "name": "qttools"
+        },
+        {
             "name": "glew"
         },
         {

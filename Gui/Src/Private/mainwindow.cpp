@@ -2,6 +2,9 @@
 
 #include "../Public/mainwindow.h"
 
+
+
+
 #include <QtWidgets>
 #include <QQmlEngine>
 #include <QQuickWidget>
@@ -11,6 +14,8 @@
 #include <thread>
 #include <filesystem>
 
+#include <Document.h>
+
 using namespace std;
 using namespace chrono_literals;
 
@@ -19,32 +24,36 @@ MainWindow::MainWindow(QString versionString)
 {
 
  
-  //setCentralWidget();
+    //setCentralWidget();
 
-  createActions();
-  createStatusBar();
-  createDockWindows();
+    document = new Document();
+
+    createActions();
+    createStatusBar();
+    createDockWindows();
 
 
-  setWindowTitle(tr("UsdStudio " ) + versionString + tr( " with USD 22"));
+    setWindowTitle(tr("UsdStudio " ) + versionString + tr( " with USD 22"));
 
-  setWindowIcon(QIcon(":/Resources/images/Icon128.png"));
+    setWindowIcon(QIcon(":/Resources/images/Icon128.png"));
 
-  setUnifiedTitleAndToolBarOnMac(true);
+    setUnifiedTitleAndToolBarOnMac(true);
 
-  readSettings();
+    readSettings();
 
-  setAcceptDrops(true);
+    setAcceptDrops(true);
 
-  // uses QQmlEngine and QQuickWidget 
-  QQmlEngine* engine = new QQmlEngine(this);
-  QQuickWidget* view = new QQuickWidget(engine, this);
+    // uses QQmlEngine and QQuickWidget 
+    QQmlEngine* engine = new QQmlEngine(this);
+    QQuickWidget* view = new QQuickWidget(engine, this);
 
-  view->setSource(QUrl("qrc:/Default.qml"));
-  this->setCentralWidget(view);
+    view->setSource(QUrl("qrc:/Default.qml"));
+    this->setCentralWidget(view);
 }
 
-MainWindow::~MainWindow() {
+MainWindow::~MainWindow() 
+{
+    if (document) delete document;
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)

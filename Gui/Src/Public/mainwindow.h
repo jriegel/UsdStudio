@@ -6,6 +6,8 @@
 #include <QTemporaryDir>
 #include <functional>
 
+class Document;
+
 
 QT_BEGIN_NAMESPACE
 class QAction;
@@ -22,6 +24,7 @@ QT_END_NAMESPACE
 class TreeModel;
 class ModelAdaptor;
 
+class Document;
 
 class MainWindow : public QMainWindow
 {
@@ -81,7 +84,7 @@ private:
   QPlainTextEdit *logList;
   QLineEdit *searchInput;
 
-
+  Document *document = nullptr;
   
 
   QMenu *viewMenu;
