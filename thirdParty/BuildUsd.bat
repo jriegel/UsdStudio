@@ -59,11 +59,8 @@ echo  [94mCall USD Build script for release:[0m
 python ^
 	build_scripts\build_usd.py ^
 		--build-variant relwithdebuginfo ^
-		--debug-python ^
 		--ptex ^
-		--openvdb ^
 		--embree ^
-		--opencolorio ^
 		--alembic ^
 		--hdf5 ^
 		--draco ^
@@ -79,7 +76,7 @@ cd ..
 
 echo  [32mBuild finished.[0m
 
-rem exit 0
+exit 0
 
 echo  [94mCall USD Build script for release:[0m
 python ^

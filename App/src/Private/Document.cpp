@@ -4,6 +4,7 @@
 #include "pxr/usd/usdGeom/sphere.h"
 #include "pxr/usd/sdf/path.h"
 
+#include "iostream"
 
 Document::Document()
 {

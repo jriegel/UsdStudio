@@ -27,6 +27,14 @@ FOR /F "tokens=* USEBACKQ" %%F IN (`where.exe vcpkg.exe`) DO (
 echo Using VCPKG in %VCPKG_DIR%
 
 
+REM Check if the directory thirdParty\USD-Build exists
+IF NOT EXIST "thirdParty\USD-Build" (
+    ECHO [91mERROR: The directory thirdParty\USD-Build was not found![0m
+    ECHO Please use thirdParty/BuildUsd.bat to build the USD library first.
+    pause
+    goto End
+)
+
 
 echo  [94mCheck for compiler version:[0m
 if exist "C:\Program Files\Microsoft Visual Studio\2022\Community" (
@@ -69,6 +77,8 @@ IF %ERRORLEVEL% NEQ 0 (
     pause
     exit 1
 )
+
+@echo on
 
 md WinBuild\bin\RelWithDebInfo\lib\usd
 xcopy /Y thirdParty\USD-Build\lib\*.dll WinBuild\bin\RelWithDebInfo\

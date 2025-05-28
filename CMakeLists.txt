@@ -2,6 +2,11 @@
 
 cmake_minimum_required(VERSION 3.30.0)
 
+# Set custom build types, excluding MinSizeRel and Debug, since OpenUSD does not realy support them
+set(CMAKE_CONFIGURATION_TYPES "Release;RelWithDebInfo" CACHE STRING "Available build types" FORCE)
+
+# Disable optimization for RelWithDebInfo
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/Od" CACHE STRING "Flags for RelWithDebInfo build" FORCE)
 
 project(UsdStudio)
 
