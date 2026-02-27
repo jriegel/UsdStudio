@@ -8,7 +8,7 @@ source_group("UsdStudio" FILES ${ENGVIEWER_SRC})
 
 
 # Tell CMake to create the UsdStudio executable
-add_executable(UsdStudio WIN32 ${MAIN_SRC}  )
+add_executable(UsdStudio ${MAIN_SRC}  )
 
 add_dependencies(UsdStudio 
 	UsdStudioGuiLib
