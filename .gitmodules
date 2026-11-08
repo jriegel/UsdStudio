@@ -1,0 +1,4 @@
+[submodule "ThirdParty/OpenUsd_Src/OpenUSD"]
+	path = ThirdParty/OpenUsd_Src
+	url = https://github.com/PixarAnimationStudios/OpenUSD.git
+	branch = v26.11
