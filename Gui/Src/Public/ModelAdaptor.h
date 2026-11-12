@@ -21,7 +21,7 @@ public:
 	void setSearchText(QString searchText);
 	void setVisibility(TreeItem *item);
 
-signals:
+Q_SIGNALS:
 	void signalItemUpdate(TreeItem *item);
 
 private:

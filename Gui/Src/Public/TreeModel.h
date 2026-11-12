@@ -34,7 +34,7 @@ public:
 	QString getPathByIndex(const QModelIndex &index);
 	int getRenderIdByIndex(const QModelIndex &index);
 
-public slots:
+public Q_SLOTS:
 	void slotSceneGraphLoaded();
 	void slotItemUpdate(TreeItem *item);
 

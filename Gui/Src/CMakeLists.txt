@@ -39,6 +39,8 @@ add_library( UsdStudioGuiLib   STATIC
 	${ProjectHeaders} 
 )
 
+target_compile_definitions(UsdStudioGuiLib PUBLIC QT_NO_KEYWORDS)
+
 
 
 set_property(TARGET UsdStudioGuiLib PROPERTY CXX_STANDARD 20)
@@ -49,8 +51,8 @@ endif()
 
 
 target_link_libraries (UsdStudioGuiLib 
-	PRIVATE  
-	    UsdStudioAppLib 
+	PRIVATE
+	    UsdStudioAppLib
 		Qt6::Core 
 		Qt6::Widgets 
 		Qt6::Network 
@@ -58,33 +60,8 @@ target_link_libraries (UsdStudioGuiLib
 		Qt6::QuickControls2
 		Qt6::QuickWidgets
 		Qt6::OpenGL
-		ar
-		arch
-		gf
-		js
-		kind
-		ndr
-		pcp
-		plug
-		sdf
-		sdr
-		tf
-		trace
-		usd
-		usdGeom
-		usdHydra
-		usdLux
-		usdMedia
-		usdPhysics
-		usdRender
-		usdShade
-		usdSkel
-		usdUI
-		usdUtils
-		usdVol
-		vt
-		work
-
+	PUBLIC
+		UsdStudioOpenUSD
 )
 
 #target_include_directories (UsdStudioGuiLib PUBLIC	)

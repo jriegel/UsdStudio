@@ -40,35 +40,8 @@ endif()
 
 
 target_link_libraries (UsdStudioAppLib 
-	PRIVATE  
-		
-		ar
-		arch
-		gf
-		js
-		kind
-		ndr
-		pcp
-		plug
-		sdf
-		sdr
-		tf
-		trace
-		usd
-		usdGeom
-		usdHydra
-		usdLux
-		usdMedia
-		usdPhysics
-		usdRender
-		usdShade
-		usdSkel
-		usdUI
-		usdUtils
-		usdVol
-		vt
-		work
-
+	PUBLIC
+		UsdStudioOpenUSD
 )
 
 #target_include_directories (UsdStudioAppLib PUBLIC	)

@@ -17,7 +17,7 @@ target_link_libraries(switch_demo_qml
     Qt5::Gui
     Qt5::Quick
     ext::glew
-    ext::python
+    #ext::python
     ext::nv-usd    
     
 )

@@ -37,16 +37,16 @@ public:
 
    
 
-public slots:
+public Q_SLOTS:
   void slotTreeContextMenu(const QPoint&);
 
-signals:
+Q_SIGNALS:
 
 protected:
   void dragEnterEvent(QDragEnterEvent *event);
   void dropEvent(QDropEvent *event);
 
-private slots:
+private Q_SLOTS:
   void newDocument();
   void open();
   void exportPrj();

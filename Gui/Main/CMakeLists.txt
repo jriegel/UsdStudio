@@ -12,7 +12,7 @@ add_executable(UsdStudio ${MAIN_SRC}  )
 
 add_dependencies(UsdStudio 
 	UsdStudioGuiLib
-	Python3::InterpreterMultiConfig
+	#Python3::InterpreterMultiConfig
 )
 
 set_property(TARGET UsdStudio PROPERTY CXX_STANDARD 20)
@@ -25,32 +25,7 @@ target_link_libraries(UsdStudio
 		Qt::Widgets 
 		Qt::QuickWidgets 
 		UsdStudioGuiLib 
-		ar
-		arch
-		gf
-		js
-		kind
-		ndr
-		pcp
-		plug
-		sdf
-		sdr
-		tf
-		trace
-		usd
-		usdGeom
-		usdHydra
-		usdLux
-		usdMedia
-		usdPhysics
-		usdRender
-		usdShade
-		usdSkel
-		usdUI
-		usdUtils
-		usdVol
-		vt
-		work
+		UsdStudioOpenUSD
 ) 
 
   set_target_properties(UsdStudio       PROPERTIES 
@@ -59,3 +34,20 @@ target_link_libraries(UsdStudio
           RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
           )
 
+if(WIN32)
+  add_custom_command(TARGET UsdStudio POST_BUILD
+    COMMAND $<TARGET_FILE:Qt6::windeployqt>
+      $<IF:$<CONFIG:Debug>,--debug,--release>
+      --no-translations --no-compiler-runtime
+      --qmldir "${CMAKE_CURRENT_SOURCE_DIR}/../Src/Private"
+      $<TARGET_FILE:UsdStudio>
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      $<TARGET_RUNTIME_DLLS:UsdStudio> $<TARGET_FILE_DIR:UsdStudio>
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+      "${OPENUSD_ROOT}/lib/usd" "$<TARGET_FILE_DIR:UsdStudio>/usd"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+      "${OPENUSD_ROOT}/plugin/usd" "$<TARGET_FILE_DIR:UsdStudio>/../plugin/usd"
+    COMMAND_EXPAND_LISTS
+    VERBATIM
+  )
+endif()

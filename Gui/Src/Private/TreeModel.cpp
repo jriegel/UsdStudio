@@ -193,7 +193,7 @@ void TreeModel::slotItemUpdate(TreeItem *item)
 
 	if (item->ParentItem) {
 		QModelIndex index = createIndex(item->RowInParent, 0, item);
-		emit dataChanged(index,index);
+		Q_EMIT dataChanged(index,index);
 	}
 	else {
 		for (TreeItem *actItem : item->ChildItems )

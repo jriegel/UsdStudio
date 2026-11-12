@@ -12,8 +12,48 @@ option(BUILD_GUI "Build with GUI" ON )
 set(CMAKE_INCLUDE_CURRENT_DIR ON) 
 
 
-find_package (Python3 REQUIRED COMPONENTS Interpreter Development)
+#find_package (Python3 REQUIRED COMPONENTS Interpreter Development)
 
+set(OPENUSD_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/OpenUsd_Build_Release")
+if(NOT EXISTS "${OPENUSD_ROOT}/pxrConfig.cmake")
+  message(FATAL_ERROR
+    "OpenUSD was not found at ${OPENUSD_ROOT}. Run Setup.bat to build it first.")
+endif()
+
+if(NOT OpenSubdiv_DIR)
+  set(OpenSubdiv_DIR "${OPENUSD_ROOT}/lib/cmake/OpenSubdiv")
+endif()
+
+find_package(pxr CONFIG REQUIRED PATHS "${OPENUSD_ROOT}" NO_DEFAULT_PATH)
+
+add_library(UsdStudioOpenUSD INTERFACE)
+target_link_libraries(UsdStudioOpenUSD INTERFACE
+  ar
+  arch
+  gf
+  js
+  kind
+  pcp
+  plug
+  sdf
+  sdr
+  tf
+  trace
+  usd
+  usdGeom
+  usdHydra
+  usdLux
+  usdMedia
+  usdPhysics
+  usdRender
+  usdShade
+  usdSkel
+  usdUI
+  usdUtils
+  usdVol
+  vt
+  work
+)
 
 find_package(CLI11 CONFIG REQUIRED)
  
@@ -30,4 +70,3 @@ add_subdirectory(App)
 if(BUILD_GUI)
   add_subdirectory(Gui)
 endif(BUILD_GUI)
-
