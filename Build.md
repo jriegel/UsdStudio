@@ -42,7 +42,39 @@ Building `UsdStudio` also deploys its Qt runtime and linked OpenUSD DLLs and
 plugin metadata next to the executable.
 
 The OpenUSD build installed by `ThirdParty\BuildUsd.bat` includes OpenSubdiv.
-CMake uses its package configuration from that installation by default. To use
-a different compatible installation, set `OpenSubdiv_DIR` when configuring.
+CMake uses its OpenSubdiv and TBB package configurations from that installation
+by default when available. To use different compatible installations, set
+`OpenSubdiv_DIR` or `TBB_DIR` when configuring.
 
+## Linux and macOS build
+
+Install a C++ compiler, CMake 3.30 or newer, Python 3 with development
+headers, and vcpkg. Install the system development libraries required by
+OpenUSD and the vcpkg Qt ports; on macOS, install the Xcode command-line tools.
+On Debian/Ubuntu, vcpkg's dependency builds also require `bison`, `flex`,
+`autoconf`, `autoconf-archive`, `automake`, and `libtool`. For Qt's X11
+backend, install `^libxcb.*-dev`, `libx11-xcb-dev`, `libglu1-mesa-dev`,
+`libxrender-dev`, `libxi-dev`, `libxkbcommon-dev`, `libxkbcommon-x11-dev`,
+and `libegl1-mesa-dev`.
+The OpenUSD build downloads and compiles its dependencies and may take a long
+time. Set `VCPKG_ROOT` to a writable vcpkg checkout, or put its executable on
+`PATH`.
+
+From any directory, run:
+
+```sh
+/path/to/UsdStudio/Setup.sh
+cmake --build /path/to/UsdStudio/UnixBuild --parallel
+```
+
+Setup builds OpenUSD when its `pxrConfig.cmake` is missing, then configures a
+Release build in `UnixBuild`. Additional arguments to `Setup.sh` are passed to
+CMake, for example `./Setup.sh -DBUILD_GUI=OFF`. To build or update OpenUSD
+separately, run `./ThirdParty/BuildUsd.sh`; it reuses its build directories
+rather than deleting them. Arguments are passed to OpenUSD's build script, for
+example `./ThirdParty/BuildUsd.sh --jobs 4`. Python bindings are installed
+inside the OpenUSD installation directory.
+
+The executables are in `UnixBuild/bin`. Unlike the Windows build, Qt and
+OpenUSD runtimes are not deployed alongside the GUI executable.
 

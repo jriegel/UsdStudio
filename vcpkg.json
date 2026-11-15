@@ -14,6 +14,11 @@
     ],
     "builtin-baseline": "66c0373dc7fca549e5803087b9487edfe3aca0a1",
     "overrides": [
+    {
+        "name": "libsystemd",
+        "version": "257.8",
+        "port-version": 2
+    },
     { 
         "name": "qtbase", 
         "version": "6.8.2"

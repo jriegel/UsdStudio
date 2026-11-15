@@ -2,8 +2,10 @@
 
 set(MAIN_SRC
   main.cpp
-  resource.rc
 )
+if(WIN32)
+  list(APPEND MAIN_SRC resource.rc)
+endif()
 source_group("UsdStudio" FILES ${ENGVIEWER_SRC})
 
 

@@ -17,11 +17,15 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(OPENUSD_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/OpenUsd_Build_Release")
 if(NOT EXISTS "${OPENUSD_ROOT}/pxrConfig.cmake")
   message(FATAL_ERROR
-    "OpenUSD was not found at ${OPENUSD_ROOT}. Run Setup.bat to build it first.")
+    "OpenUSD was not found at ${OPENUSD_ROOT}. Run Setup.bat or Setup.sh to build it first.")
 endif()
 
 if(NOT OpenSubdiv_DIR)
   set(OpenSubdiv_DIR "${OPENUSD_ROOT}/lib/cmake/OpenSubdiv")
+endif()
+
+if(NOT TBB_DIR AND EXISTS "${OPENUSD_ROOT}/lib/cmake/TBB")
+  set(TBB_DIR "${OPENUSD_ROOT}/lib/cmake/TBB")
 endif()
 
 find_package(pxr CONFIG REQUIRED PATHS "${OPENUSD_ROOT}" NO_DEFAULT_PATH)
