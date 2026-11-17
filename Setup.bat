@@ -19,7 +19,10 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if not exist "%~dp0ThirdParty\OpenUsd_Build_Release\" (
+REM Check for pxrConfig.cmake, not just the directory: an interrupted build_usd.py run
+REM leaves the directory behind with only half of the dependencies in it, and
+REM BuildUsd.bat recreates it from scratch.
+if not exist "%~dp0ThirdParty\OpenUsd_Build_Release\pxrConfig.cmake" (
     echo OpenUSD build not found. Starting BuildUsd.bat...
     pushd "%~dp0ThirdParty"
     if errorlevel 1 (
@@ -52,6 +55,29 @@ FOR /F "tokens=* USEBACKQ" %%F IN (`where.exe vcpkg.exe`) DO (
 :Found
 echo Using VCPKG in %VCPKG_DIR%
 
+echo  [94mMake vcpkg use a portable PowerShell:[0m
+REM vcpkg runs applocal.ps1 through pwsh.exe after building a port. If it resolves
+REM the Microsoft Store (MSIX app-execution-alias) pwsh.exe, that pwsh can abort at
+REM startup with "The type initializer for
+REM 'System.Management.Automation.ModuleIntrinsics' threw an exception" when the
+REM Documents folder is redirected to a OneDrive path. vcpkg then reports the port
+REM as BUILD_FAILED even though the port itself compiled fine.
+REM See https://github.com/PowerShell/PowerShell/issues/26536
+REM 'vcpkg fetch powershell-core' downloads and extracts a portable PowerShell into
+REM vcpkg's own tools directory and prints its path. vcpkg's build system uses that
+REM portable copy instead of any pwsh.exe found on PATH, so fetching it up front keeps
+REM the port builds away from the Microsoft Store copy.
+set "VCPKG_PWSH="
+FOR /F "tokens=* USEBACKQ" %%F IN (`"%VCPKG_DIR%vcpkg.exe" fetch powershell-core 2^>nul`) DO (
+ SET VCPKG_PWSH=%%F
+)
+if defined VCPKG_PWSH (
+    echo Using PowerShell for vcpkg: %VCPKG_PWSH%
+) else (
+    echo WARNING: vcpkg has no portable PowerShell, it may fall back to the
+    echo          Microsoft Store pwsh.exe alias, which can fail at startup.
+    echo          See Build.md for the manual workaround.
+)
 
 echo  [94mSearch for cMake:[0m
 WHERE cmake

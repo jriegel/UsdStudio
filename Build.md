@@ -46,6 +46,34 @@ CMake uses its OpenSubdiv and TBB package configurations from that installation
 by default when available. To use different compatible installations, set
 `OpenSubdiv_DIR` or `TBB_DIR` when configuring.
 
+### Troubleshooting: a vcpkg port fails in `applocal.ps1`
+
+If configuring fails with a port such as `pkgconf:x64-windows` reported as
+`BUILD_FAILED` and the failing command is `pwsh.exe ... scripts/buildsystems/msbuild/applocal.ps1`
+with `Error code: 70`, the port itself built fine. What failed is vcpkg's
+post-build step, which runs `applocal.ps1` in PowerShell. Look for
+`copy-tool-dependencies-*-err.log` in the port's build tree
+(`--x-buildtrees-root`, here `C:\temp\pkgconf`) and you will find instead of a
+compiler error:
+
+```
+The type initializer for 'System.Management.Automation.ModuleIntrinsics' threw an exception.
+```
+
+That is a startup crash of the Microsoft Store (MSIX) preview of PowerShell 7.7,
+which is reached through the `%LOCALAPPDATA%\Microsoft\WindowsApps\pwsh.exe`
+app-execution alias. It happens when the Documents folder is redirected, e.g. to
+OneDrive, while `PSModulePath` in the registry is empty; see
+[PowerShell#26536](https://github.com/PowerShell/PowerShell/issues/26536).
+PowerShell 7.6.x does not have the bug.
+
+`Setup.bat` avoids it by running `vcpkg fetch powershell-core`, which installs a
+portable PowerShell into `<vcpkg>\downloads\tools\` and makes vcpkg use that copy
+instead of any `pwsh.exe` on `PATH`. To fix the machine itself instead, remove or
+update the Store PowerShell preview, install the PowerShell 7.6.x MSI from
+<https://github.com/PowerShell/PowerShell/releases>, or set a non-empty
+`PSModulePath` value under `HKCU\Environment`.
+
 ## Linux and macOS build
 
 Install a C++ compiler, CMake 3.30 or newer, Python 3 with development
