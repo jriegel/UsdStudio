@@ -68,7 +68,13 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 void  MainWindow::newDocument()
 {
+  if (document)
+    document->New();
+  else
+    document = new Document();
 
+  setWindowTitle(tr("UsdStudio"));
+  statusBar()->showMessage(tr("New document created"), 3000);
 }
 
 
@@ -77,16 +83,24 @@ void  MainWindow::newDocument()
 
 void MainWindow::open()
 {
-  QMimeDatabase mimeDatabase;
   QString fileName = QFileDialog::getOpenFileName(this,
-    "Insert file", nullptr, "Project file (*.vrpresentation *.vrp *.xml)");
+    "Open USD file", nullptr,
+    "USD files (*.usd *.usda *.usdc *.usdz);;All files (*.*)");
 
   if (fileName.isEmpty())
     return;
 
-  //importProject(fileName);
+  if (!document)
+    document = new Document();
 
-  statusBar()->showMessage(tr("Start loading project: '%1'").arg(fileName), 2000);
+  if (!document->Open(fileName.toStdString()))
+  {
+    statusBar()->showMessage(tr("Failed to open project: '%1'").arg(fileName), 5000);
+    return;
+  }
+
+  setWindowTitle(tr("UsdStudio - %1").arg(QFileInfo(fileName).fileName()));
+  statusBar()->showMessage(tr("Opened project: '%1'").arg(fileName), 3000);
 }
 
 void MainWindow::exportPrj()
@@ -158,8 +172,7 @@ void MainWindow::createActions()
   newAction = new QAction(newIcon, tr("&New"), this);
   newAction->setShortcuts(QKeySequence::New);
   newAction->setStatusTip(tr("Create a new project/scene"));
-  newAction->setEnabled(false);
-  newAction->setEnabled(false);
+  newAction->setEnabled(true);
   connect(newAction, &QAction::triggered, this, &MainWindow::newDocument);
   fileMenu->addAction(newAction);
   fileToolBar->addAction(newAction);
@@ -169,7 +182,7 @@ void MainWindow::createActions()
   openAction = new QAction(openIcon, tr("&Open..."), this);
   openAction->setShortcuts(QKeySequence::Open);
   openAction->setStatusTip(tr("Open a project file"));
-  openAction->setEnabled(false);
+  openAction->setEnabled(true);
   connect(openAction, &QAction::triggered, this, &MainWindow::open);
   fileMenu->addAction(openAction);
   fileToolBar->addAction(openAction);
