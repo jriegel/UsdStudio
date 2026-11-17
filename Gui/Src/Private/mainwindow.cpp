@@ -8,13 +8,22 @@
 #include <QtWidgets>
 #include <QQmlEngine>
 #include <QQuickWidget>
+#include <QUndoStack>
+#include <QUndoView>
 #include <assert.h>
 #include <iostream>
 #include <chrono>
 #include <thread>
 #include <filesystem>
+#include <array>
+#include <span>
+#include <string>
+#include <string_view>
 
 #include <Document.h>
+#include <Commands/CommandRegistry.h>
+#include <Commands/DocumentCommands.h>
+#include "../Public/UndoCommandAdapter.h"
 
 using namespace std;
 using namespace chrono_literals;
@@ -28,12 +37,20 @@ MainWindow::MainWindow(QString versionString)
 
     document = new Document();
 
+    commandRegistry = std::make_unique<CommandRegistry>();
+    registerCommands();
+
+    undoStack = new QUndoStack(this);
+
     createActions();
     createStatusBar();
     createDockWindows();
 
+    baseTitle = tr("UsdStudio ") + versionString + tr( " with USD 22");
+    setWindowTitle(baseTitle);
 
-    setWindowTitle(tr("UsdStudio " ) + versionString + tr( " with USD 22"));
+    // Title follows the document after every execute/undo/redo step.
+    connect(undoStack, &QUndoStack::indexChanged, this, &MainWindow::updateDocumentUi);
 
     setWindowIcon(QIcon(":/Resources/images/Icon128.png"));
 
@@ -68,13 +85,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
 void  MainWindow::newDocument()
 {
-  if (document)
-    document->New();
-  else
-    document = new Document();
-
-  setWindowTitle(tr("UsdStudio"));
-  statusBar()->showMessage(tr("New document created"), 3000);
+  runCommand(commandRegistry->create("document.new", std::span<const std::string_view>{}));
 }
 
 
@@ -90,17 +101,61 @@ void MainWindow::open()
   if (fileName.isEmpty())
     return;
 
-  if (!document)
-    document = new Document();
-
-  if (!document->Open(fileName.toStdString()))
+  try
   {
-    statusBar()->showMessage(tr("Failed to open project: '%1'").arg(fileName), 5000);
-    return;
+    std::string fileNameStd = fileName.toStdString();
+    std::array<std::string_view, 1> args{ std::string_view(fileNameStd) };
+    if (runCommand(commandRegistry->create("document.open", std::span(args))))
+      statusBar()->showMessage(tr("Opened document: '%1'").arg(fileName), 3000);
   }
+  catch (const std::exception& e)
+  {
+    statusBar()->showMessage(tr("Could not open '%1': %2").arg(fileName, e.what()), 5000);
+  }
+}
 
-  setWindowTitle(tr("UsdStudio - %1").arg(QFileInfo(fileName).fileName()));
-  statusBar()->showMessage(tr("Opened project: '%1'").arg(fileName), 3000);
+
+
+void MainWindow::registerCommands()
+{
+  commandRegistry->registerCommand<NewDocumentCommand, Document>(
+      "document.new", "Replaces the document with a new empty stage.", document);
+  commandRegistry->registerCommand<OpenDocumentCommand, Document, std::string>(
+      "document.open", "Opens a USD file: document.open <fileName>", document);
+}
+
+
+
+bool MainWindow::runCommand(std::unique_ptr<ICommand> command)
+{
+  if (!command)
+    return false;
+
+  try
+  {
+    // Execute before pushing: if execute() throws, the undo stack stays
+    // untouched. The adapter skips the redundant execution that
+    // QUndoStack::push triggers.
+    command->execute();
+    undoStack->push(new UndoCommandAdapter(std::move(command)));
+    return true;
+  }
+  catch (const std::exception& e)
+  {
+    statusBar()->showMessage(tr("Command failed: %1").arg(e.what()), 5000);
+    return false;
+  }
+}
+
+
+
+void MainWindow::updateDocumentUi()
+{
+  const std::string file = document ? document->getFileName() : std::string();
+  if (file.empty())
+    setWindowTitle(baseTitle);
+  else
+    setWindowTitle(baseTitle + " - " + QFileInfo(QString::fromStdString(file)).fileName());
 }
 
 void MainWindow::exportPrj()
@@ -199,6 +254,27 @@ void MainWindow::createActions()
 
 
 // =========================================================================================================
+// ===== Edit    ===========================================================================================
+// =========================================================================================================
+
+  QMenu *editMenu = menuBar()->addMenu(tr("&Edit"));
+  QToolBar *editToolBar = addToolBar(tr("Edit"));
+
+  QAction *undoAction = undoStack->createUndoAction(this, tr("Undo"));
+  undoAction->setShortcuts(QKeySequence::Undo);
+  undoAction->setStatusTip(tr("Undo the last command"));
+  editMenu->addAction(undoAction);
+  editToolBar->addAction(undoAction);
+
+  QAction *redoAction = undoStack->createRedoAction(this, tr("Redo"));
+  redoAction->setShortcuts(QKeySequence::Redo);
+  redoAction->setStatusTip(tr("Redo the last undone command"));
+  editMenu->addAction(redoAction);
+  editToolBar->addAction(redoAction);
+
+
+
+// =========================================================================================================
 // ===== View    ===========================================================================================
 // =========================================================================================================
 
@@ -285,6 +361,13 @@ void MainWindow::createDockWindows()
   QObject::connect(sceneTreeView, &QWidget::customContextMenuRequested, this, &MainWindow::slotTreeContextMenu);
 
   
+  // Command History ==============================================================================================
+  QDockWidget *historyDock = new QDockWidget(tr("Command History"), this);
+  historyDock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
+  historyDock->setWidget(new QUndoView(undoStack, historyDock));
+  addDockWidget(Qt::BottomDockWidgetArea, historyDock);
+  historyDock->setVisible(true);
+
 }
 
 void MainWindow::writeSettings()

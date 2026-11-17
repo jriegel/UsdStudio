@@ -5,8 +5,11 @@
 #include <QTime>
 #include <QTemporaryDir>
 #include <functional>
+#include <memory>
 
 class Document;
+class CommandRegistry;
+class ICommand;
 
 
 QT_BEGIN_NAMESPACE
@@ -19,6 +22,7 @@ class QLineEdit;
 class QTimer;
 class QLabel;
 class QSlider;
+class QUndoStack;
 QT_END_NAMESPACE
 
 class TreeModel;
@@ -66,6 +70,16 @@ private:
   void createStatusBar();
   void createDockWindows();
 
+  // Registers the Qt-free app commands against the MainWindow's registry
+  // and undo stack (see Commands/ in /App).
+  void registerCommands();
+
+  // Wraps a command into the QUndoStack; false if it failed.
+  bool runCommand(std::unique_ptr<ICommand> command);
+
+  // Syncs window title from the document's current file.
+  void updateDocumentUi();
+
   void writeSettings();
   void readSettings();
 
@@ -85,6 +99,9 @@ private:
   QLineEdit *searchInput;
 
   Document *document = nullptr;
+  QUndoStack *undoStack = nullptr;
+  std::unique_ptr<CommandRegistry> commandRegistry;
+  QString baseTitle;
   
 
   QMenu *viewMenu;

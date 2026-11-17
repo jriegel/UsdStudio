@@ -11,6 +11,7 @@ set( ProjectSources
 	#Private/scene.cpp
 	Private/ModelAdaptor.cpp
 	Private/mainwindow.cpp
+	Private/UndoCommandAdapter.cpp
 	Private/resources.qrc
 )
 
@@ -21,6 +22,7 @@ set( ProjectHeaders
 	#Public/scene.h
 	Public/ModelAdaptor.h
 	Public/mainwindow.h
+	Public/UndoCommandAdapter.h
 )
 
 
@@ -54,6 +56,7 @@ target_link_libraries (UsdStudioGuiLib
 	PRIVATE
 	    UsdStudioAppLib
 		Qt6::Core 
+		Qt6::Gui 
 		Qt6::Widgets 
 		Qt6::Network 
 		Qt6::Quick 

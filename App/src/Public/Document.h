@@ -11,6 +11,7 @@
 class Document
 {
 	pxr::UsdStageRefPtr stage ;
+	std::string fileName ;
 
 
 public:
@@ -27,5 +28,13 @@ public:
 	bool Save(const std::string& fileName);
 
 	pxr::UsdStageRefPtr getStage() const { return stage; }
+
+	// Name of the file the stage was last opened from or saved to;
+	// empty for a new, unsaved document.
+	std::string getFileName() const { return fileName; }
+
+	// Replaces stage and file name in one step. Used by the undoable
+	// document commands to restore a previously active stage.
+	void setStage(const pxr::UsdStageRefPtr& newStage, const std::string& newFileName);
 };
 

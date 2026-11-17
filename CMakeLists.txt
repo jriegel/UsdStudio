@@ -8,6 +8,8 @@ add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
 
 option(BUILD_GUI "Build with GUI" ON )
 
+enable_testing()
+
 # Find includes in corresponding build directories
 set(CMAKE_INCLUDE_CURRENT_DIR ON) 
 

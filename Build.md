@@ -41,6 +41,19 @@ target, add `--target UsdStudio` or `--target UsdStudioCmd`.
 Building `UsdStudio` also deploys its Qt runtime and linked OpenUSD DLLs and
 plugin metadata next to the executable.
 
+### Running the tests
+
+The headless test executables are registered with CTest:
+
+```bat
+ctest --test-dir WinBuild\VS2026 -C Release --output-on-failure
+```
+
+`UsdStudioAppTests` covers the Qt-free command framework (command registry,
+argument parsing, undo/redo) against `Data\Kitchen_set`; `UsdStudioGuiTests`
+covers the Qt `QUndoStack` bridge. Both need the Release configuration built
+first.
+
 The OpenUSD build installed by `ThirdParty\BuildUsd.bat` includes OpenSubdiv.
 CMake uses its OpenSubdiv and TBB package configurations from that installation
 by default when available. To use different compatible installations, set

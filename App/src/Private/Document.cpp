@@ -15,6 +15,7 @@ Document::Document()
 void Document::New()
 {
 	stage = pxr::UsdStage::CreateInMemory();
+	fileName.clear();
 }
 
 bool Document::Open(const std::string& fileName)
@@ -27,7 +28,14 @@ bool Document::Open(const std::string& fileName)
 	}
 
 	stage = newStage;
+	this->fileName = fileName;
 	return true;
+}
+
+void Document::setStage(const pxr::UsdStageRefPtr& newStage, const std::string& newFileName)
+{
+	stage = newStage;
+	fileName = newFileName;
 }
 
 bool Document::Save(const std::string& fileName)
@@ -39,5 +47,9 @@ bool Document::Save(const std::string& fileName)
 	if (!rootLayer)
 		return false;
 
-	return rootLayer->Export(fileName);
+	if (!rootLayer->Export(fileName))
+		return false;
+
+	this->fileName = fileName;
+	return true;
 }

@@ -6,11 +6,18 @@
 
 set( ProjectSources
 	Private/Document.cpp
+	Private/Commands/CommandRegistry.cpp
+	Private/Commands/CommandHistory.cpp
+	Private/Commands/DocumentCommands.cpp
 	
 )
 
 set( ProjectHeaders
 	Public/Document.h
+	Public/Commands/ICommand.h
+	Public/Commands/CommandRegistry.h
+	Public/Commands/CommandHistory.h
+	Public/Commands/DocumentCommands.h
 	
 )
 
