@@ -5,24 +5,22 @@
 
 
 set( ProjectSources
-	Private/TreeModel.cpp
-	Private/TreeItem.cpp
-	#Private/viewitem.cpp
-	#Private/scene.cpp
-	Private/ModelAdaptor.cpp
 	Private/mainwindow.cpp
 	Private/UndoCommandAdapter.cpp
+	Private/UsdStageModel.cpp
+	Private/SceneTreeView.cpp
+	#Private/viewitem.cpp
+	#Private/scene.cpp
 	Private/resources.qrc
 )
 
 set( ProjectHeaders
-	Public/TreeModel.h
-	Public/TreeItem.h
-	#Public/viewitem.h
-	#Public/scene.h
-	Public/ModelAdaptor.h
 	Public/mainwindow.h
 	Public/UndoCommandAdapter.h
+	Public/UsdStageModel.h
+	Public/SceneTreeView.h
+	#Public/viewitem.h
+	#Public/scene.h
 )
 
 

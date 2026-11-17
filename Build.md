@@ -51,8 +51,10 @@ ctest --test-dir WinBuild\VS2026 -C Release --output-on-failure
 
 `UsdStudioAppTests` covers the Qt-free command framework (command registry,
 argument parsing, undo/redo) against `Data\Kitchen_set`; `UsdStudioGuiTests`
-covers the Qt `QUndoStack` bridge. Both need the Release configuration built
-first.
+covers the Qt `QUndoStack` bridge; `UsdStageModelTests` covers the lazy
+`UsdStageModel` behind the Scene Graph dock (chunked `fetchMore`, path/index
+lookups, filtering and `UsdNotice` refresh) and also uses `Data\Kitchen_set`.
+All three need the Release configuration built first.
 
 The OpenUSD build installed by `ThirdParty\BuildUsd.bat` includes OpenSubdiv.
 CMake uses its OpenSubdiv and TBB package configurations from that installation

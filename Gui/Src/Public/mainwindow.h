@@ -25,10 +25,9 @@ class QSlider;
 class QUndoStack;
 QT_END_NAMESPACE
 
-class TreeModel;
-class ModelAdaptor;
-
-class Document;
+class SceneTreeView;
+class UsdStageModel;
+class BreadcrumbBar;
 
 class MainWindow : public QMainWindow
 {
@@ -92,11 +91,14 @@ private:
   QString uberCash;
   QString infoDebug;
 
-  QTreeView *sceneTreeView;
-  QTableView *slidesTableView;
-  QTableView *animationTableView;
-  QPlainTextEdit *logList;
-  QLineEdit *searchInput;
+  SceneTreeView *sceneTreeView = nullptr;
+  UsdStageModel *stageModel = nullptr;
+  BreadcrumbBar *breadcrumbBar = nullptr;
+  QTableView *slidesTableView = nullptr;
+  QTableView *animationTableView = nullptr;
+  QPlainTextEdit *logList = nullptr;
+  QLineEdit *searchInput = nullptr;
+  QTimer *searchDebounce = nullptr;
 
   Document *document = nullptr;
   QUndoStack *undoStack = nullptr;

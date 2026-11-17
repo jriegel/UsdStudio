@@ -24,6 +24,8 @@
 #include <Commands/CommandRegistry.h>
 #include <Commands/DocumentCommands.h>
 #include "../Public/UndoCommandAdapter.h"
+#include "../Public/UsdStageModel.h"
+#include "../Public/SceneTreeView.h"
 
 using namespace std;
 using namespace chrono_literals;
@@ -51,6 +53,7 @@ MainWindow::MainWindow(QString versionString)
 
     // Title follows the document after every execute/undo/redo step.
     connect(undoStack, &QUndoStack::indexChanged, this, &MainWindow::updateDocumentUi);
+    updateDocumentUi();
 
     setWindowIcon(QIcon(":/Resources/images/Icon128.png"));
 
@@ -156,6 +159,14 @@ void MainWindow::updateDocumentUi()
     setWindowTitle(baseTitle);
   else
     setWindowTitle(baseTitle + " - " + QFileInfo(QString::fromStdString(file)).fileName());
+
+  // The scene graph dock follows the document: execute, undo and redo all
+  // end up here, so the tree never shows a stale stage.
+  if (stageModel)
+  {
+    stageModel->setStage(document ? document->getStage() : pxr::UsdStageRefPtr());
+    statusBar()->showMessage(tr("%1 top level prim(s)").arg(stageModel->rowCount()), 3000);
+  }
 }
 
 void MainWindow::exportPrj()
@@ -336,28 +347,49 @@ void MainWindow::createStatusBar()
 void MainWindow::createDockWindows()
 {
   // Tree View ==============================================================================================
+  // UsdStageModel feeds the view lazily (see its header): nothing is built
+  // beyond the chunk the user actually sees.
+  stageModel = new UsdStageModel(this);
+
   QWidget *wrapper = new QWidget();
   QDockWidget *dock = new QDockWidget(tr("Scene Graph"), this);
   dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
   QVBoxLayout *mainLayout = new QVBoxLayout();
   QHBoxLayout *hLayout = new QHBoxLayout;
   searchInput = new QLineEdit();
+  searchInput->setPlaceholderText(tr("Filter by name or type"));
+  searchInput->setClearButtonEnabled(true);
   hLayout->addWidget(searchInput);
-  QPushButton *buttonDel = new QPushButton();
-  buttonDel->setText("X");
-  hLayout->addWidget(buttonDel);
   mainLayout->addLayout(hLayout);
-  sceneTreeView = new QTreeView();
+
+  breadcrumbBar = new BreadcrumbBar(wrapper);
+  mainLayout->addWidget(breadcrumbBar);
+
+  sceneTreeView = new SceneTreeView();
+  sceneTreeView->setModel(stageModel);
   sceneTreeView->setContextMenuPolicy(Qt::CustomContextMenu);
   mainLayout->addWidget(sceneTreeView);
+
+  breadcrumbBar->setTreeView(sceneTreeView);
 
   wrapper->setLayout(mainLayout);
   dock->setWidget(wrapper);
   addDockWidget(Qt::LeftDockWidgetArea, dock);
   dock->setVisible(true);
   //viewMenu->addAction(dock->toggleViewAction());
-  //QObject::connect(searchInput, &QLineEdit::textChanged, this, &MainWindow::text_changed);
-  //QObject::connect(buttonDel, &QPushButton::released, this, &MainWindow::text_delete);
+
+  // Debounced filter: typing must not walk the stage on every keystroke.
+  searchDebounce = new QTimer(this);
+  searchDebounce->setSingleShot(true);
+  searchDebounce->setInterval(150);
+  connect(searchDebounce, &QTimer::timeout, this, [this]() {
+    stageModel->setFilterText(searchInput->text());
+    const int matches = stageModel->matchCount();
+    if (!searchInput->text().isEmpty())
+      statusBar()->showMessage(tr("%1 matching prim(s)").arg(matches), 3000);
+  });
+  connect(searchInput, &QLineEdit::textChanged, this, [this]() { searchDebounce->start(); });
+
   QObject::connect(sceneTreeView, &QWidget::customContextMenuRequested, this, &MainWindow::slotTreeContextMenu);
 
   
