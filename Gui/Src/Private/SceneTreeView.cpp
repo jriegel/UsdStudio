@@ -28,6 +28,11 @@ SceneTreeView::SceneTreeView(QWidget* parent)
     setIndentation(16);
     setWordWrap(false);
 
+    // Long prim paths must stay readable: the Path column is wider than most
+    // docks, so the horizontal scrollbar shows up as soon as the columns no
+    // longer fit and the user can scroll (or resize) to the full path.
+    setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+
     // ResizeToContents on a header walks every row of the column: never do it
     // here.  Interactive sections stay user-resizable at O(1).
     if (auto* hdr = header()) {
@@ -36,9 +41,21 @@ SceneTreeView::SceneTreeView(QWidget* parent)
         hdr->setStretchLastSection(false);
         hdr->setSortIndicatorShown(false);
     }
+}
+
+// ---------------------------------------------------------------------------
+void SceneTreeView::setModel(QAbstractItemModel* model)
+{
+    QTreeView::setModel(model);
+    applyDefaultColumnWidths();
+}
+
+// ---------------------------------------------------------------------------
+void SceneTreeView::applyDefaultColumnWidths()
+{
     setColumnWidth(0, 280);   // UsdStageModel::NameColumn
     setColumnWidth(1, 160);   // UsdStageModel::TypeColumn
-    setColumnWidth(2, 300);   // UsdStageModel::PathColumn
+    setColumnWidth(2, 900);   // UsdStageModel::PathColumn - deep paths dominate
 }
 
 // ---------------------------------------------------------------------------
@@ -47,13 +64,23 @@ SceneTreeView::SceneTreeView(QWidget* parent)
 BreadcrumbBar::BreadcrumbBar(QWidget* parent)
     : QWidget(parent)
 {
+    // The dock must stay shrinkable below the crumb row's natural width:
+    // with a horizontal Ignored policy the layout no longer dictates a
+    // minimum width and the bar simply clips when it gets too narrow.
+    setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+
     layout_ = new QHBoxLayout(this);
     layout_->setContentsMargins(4, 2, 4, 2);
     layout_->setSpacing(2);
+    layout_->setSizeConstraint(QLayout::SetNoConstraint);
 
     titleLabel_ = new QLabel(this);
     titleLabel_->setText(QStringLiteral("Path:"));
     layout_->addWidget(titleLabel_);
+
+    // Trailing stretch: keeps the crumb chain left-aligned.  Without it a
+    // box layout spreads the widgets across the whole bar.
+    layout_->addStretch(1);
 }
 
 void BreadcrumbBar::setTreeView(SceneTreeView* view)
@@ -88,13 +115,23 @@ void BreadcrumbBar::clearButtons()
         button->deleteLater();
     }
     buttons_.clear();
+
+    // Separators live in the layout too; forgetting them makes the bar fill
+    // with "/" on every selection change.
+    for (auto* separator : separators_) {
+        layout_->removeWidget(separator);
+        separator->deleteLater();
+    }
+    separators_.clear();
 }
 
 void BreadcrumbBar::addCrumb(const QPersistentModelIndex& index, bool leaf)
 {
+    // Crumbs go in before the trailing stretch so the chain stays left-aligned.
     if (!buttons_.empty()) {
         auto* separator = new QLabel(QStringLiteral("/"), this);
-        layout_->addWidget(separator);
+        layout_->insertWidget(layout_->count() - 1, separator);
+        separators_.push_back(separator);
     }
 
     auto* button = new QToolButton(this);
@@ -108,7 +145,7 @@ void BreadcrumbBar::addCrumb(const QPersistentModelIndex& index, bool leaf)
     // children, so a crumb never jumps to the wrong prim.
     connect(button, &QToolButton::clicked, this, [this, index]() { jumpTo(index); });
 
-    layout_->addWidget(button);
+    layout_->insertWidget(layout_->count() - 1, button);
     buttons_.push_back(button);
 }
 
@@ -138,6 +175,19 @@ void BreadcrumbBar::updateForIndex(const QModelIndex& index)
 
     for (auto it = chain.rbegin(); it != chain.rend(); ++it)
         addCrumb(*it, it + 1 == chain.rend());
+
+    // On narrow docks the crumb row clips - hovering the bar reveals the
+    // complete path.
+    QString fullPath;
+    for (auto it = chain.rbegin(); it != chain.rend(); ++it)
+    {
+        fullPath += QLatin1Char('/');
+        fullPath += (*it).data(Qt::DisplayRole).toString();
+    }
+    setToolTip(fullPath);
+    titleLabel_->setToolTip(fullPath);
+    if (!buttons_.empty())
+        buttons_.back()->setToolTip(fullPath);
 
     setVisible(true);
 }

@@ -68,6 +68,38 @@ if(WIN32)
   )
 endif()
 
+# SceneTreeView / BreadcrumbBar: widget-level checks (needs a QApplication
+# with the qwindows platform, so it runs on an interactive session only).
+add_executable( SceneTreeViewTests
+	SceneTreeViewTests.cpp
+)
+
+set_property(TARGET SceneTreeViewTests PROPERTY CXX_STANDARD 20)
+
+target_link_libraries(SceneTreeViewTests PRIVATE
+	UsdStudioGuiLib
+	UsdStudioAppLib
+	Qt6::Core
+	Qt6::Gui
+	Qt6::Widgets
+)
+
+set_target_properties(SceneTreeViewTests       PROPERTIES
+          ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+          LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+          RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+          )
+
+add_test(NAME SceneTreeViewTests COMMAND SceneTreeViewTests)
+
+if(WIN32)
+  add_custom_command(TARGET SceneTreeViewTests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      $<TARGET_RUNTIME_DLLS:SceneTreeViewTests> $<TARGET_FILE_DIR:SceneTreeViewTests>
+    COMMAND_EXPAND_LISTS
+  )
+endif()
+
 # CliServer: named-pipe remote control, request framing, shared undo history.
 add_executable( CliServerTests
 	CliServerTests.cpp

@@ -29,6 +29,13 @@ class SceneTreeView : public QTreeView
 
 public:
     explicit SceneTreeView(QWidget* parent = nullptr);
+
+    // QTreeView ignores setColumnWidth() calls made before a model is set,
+    // so the default widths are (re-)applied here instead of in the ctor.
+    void setModel(QAbstractItemModel* model) override;
+
+private:
+    void applyDefaultColumnWidths();
 };
 
 // ---------------------------------------------------------------------------
@@ -58,4 +65,7 @@ private:
     QHBoxLayout* layout_ = nullptr;
     QLabel* titleLabel_ = nullptr;
     std::vector<QToolButton*> buttons_;
+    // The "/" labels between crumbs must be torn down with the buttons;
+    // leaking them turns the bar into an ever-growing row of slashes.
+    std::vector<QWidget*> separators_;
 };
