@@ -192,6 +192,18 @@ int main()
         check(r.code == ExitUsage, "flags must come after the operation name");
     }
 
+    // -------------------------------------------------------------- remote ---
+
+    {
+        // Remote mode with no listener: a precondition error, exit 5, and a
+        // hint how to make the GUI listen. No local execution happens.
+        const Result r = runCli({"--remote", "--pipe", "usdstudio-no-such-pipe", "stage.info"});
+        check(r.code == ExitFailed, "--remote without a listener exits 5");
+        check(contains(r.out, "\"ok\":false"), "--remote failure still returns an envelope");
+        check(contains(r.out, "No running UsdStudio instance"), "--remote names the missing listener");
+        check(contains(r.out, "--pipe"), "--remote hint mentions --pipe");
+    }
+
     // ------------------------------------------------------------ read ops ---
 
     {

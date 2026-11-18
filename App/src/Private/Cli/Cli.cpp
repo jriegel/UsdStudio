@@ -19,6 +19,16 @@
 #include <unistd.h>
 #endif
 
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -69,6 +79,8 @@ struct Flags
     bool agentHelp = false;
     bool types = false;
     bool version = false;
+    bool remote = false;               // --remote: run in a live UsdStudio GUI
+    std::string pipe;                  // --pipe <name>: remote pipe override
     std::vector<std::string> positional; // raw argv tail: the operation line
 };
 
@@ -97,10 +109,11 @@ bool isFlagToken(const std::string& token)
 
 bool knownFlag(const std::string& token)
 {
-    static constexpr std::array<std::string_view, 20> names = {{
+    static constexpr std::array<std::string_view, 22> names = {{
         "--json", "--text", "--compact", "--pretty", "--dry-run", "--yes", "-y",
         "--schema", "--agent-help", "--llms", "--types", "--version", "-v",
-        "--help", "-h", "-?", "--limit", "--fields", "--command", "--commands"
+        "--help", "-h", "-?", "--limit", "--fields", "--command", "--commands",
+        "--remote", "--pipe"
     }};
     for (const std::string_view name : names)
         if (token == name)
@@ -155,6 +168,7 @@ bool parseFlags(const std::vector<std::string>& args, Flags& flags, std::string&
         if (token == "--agent-help" || token == "--llms") { flags.agentHelp = true; continue; }
         if (token == "--types") { flags.types = true; continue; }
         if (token == "--version" || token == "-v") { flags.version = true; continue; }
+        if (token == "--remote") { flags.remote = true; continue; }
 
         if (token == "--help" || token == "-h" || token == "-?")
         {
@@ -191,6 +205,13 @@ bool parseFlags(const std::vector<std::string>& args, Flags& flags, std::string&
         {
             if (!hasNext) { needValue(token, "Use --fields name,name with the keys of the result."); return false; }
             splitCsv(args[++i], flags.fields);
+            continue;
+        }
+
+        if (token == "--pipe")
+        {
+            if (!hasNext) { needValue(token, "Use --pipe <name> with the pipe name shown in the UsdStudio status bar."); return false; }
+            flags.pipe = args[++i];
             continue;
         }
 
@@ -837,7 +858,7 @@ constexpr std::array<ExitCodeEntry, 6> kExitCodes = {{
     { ExitInternal, "Unexpected internal failure." },
 }};
 
-constexpr std::array<FlagEntry, 14> kFlags = {{
+constexpr std::array<FlagEntry, 16> kFlags = {{
     { "--json", "", "Default. One compact JSON line per operation on stdout." },
     { "--text", "", "Human readable output instead of JSON." },
     { "--pretty", "", "Indent the JSON. Ignored in batch mode." },
@@ -852,6 +873,8 @@ constexpr std::array<FlagEntry, 14> kFlags = {{
     { "--types", "", "Value type names accepted by attr.set." },
     { "--help", "[topic]", "Usage, or the JSON description of one operation/flag." },
     { "--yes", "", "Accepted and ignored: the CLI is never interactive." },
+    { "--remote", "", "Run the operations in a running UsdStudio GUI (live document, shared undo) instead of a fresh empty one." },
+    { "--pipe", "<name>", "Remote pipe name (default \"usdstudio-remote\"). Needed when several GUIs are running." },
 }};
 
 Json flagSpec()
@@ -987,10 +1010,11 @@ Json buildSchema(const CommandRegistry& commands, const QueryRegistry& queries)
     schema.setString("protocol",
         "stdout is JSON only: one line per operation {\"ok\":bool,\"cmd\":name,\"data\":object} on success, "
         "{\"ok\":false,\"cmd\":name,\"error\":{\"code\",\"message\",\"hint\"}} on failure. "
-        "Logs and warnings go to stderr. Never interactive.");
+        "Logs and warnings go to stderr. Never interactive. "
+        "With --remote the same envelopes come back from the running GUI, each with an extra \"exit\":<code> member.");
     schema.setString("invocation",
         "usdstudio [flags] <operation> [args]    |    usdstudio [flags] --command \"<operation> [args]\" "
-        "   |   usdstudio [flags] --commands -");
+        "   |   usdstudio [flags] --commands -    |   usdstudio --remote [flags] <operation> [args]");
     schema.setString("result", "data is an object; every array in it is capped by --limit (default 200) "
         "and sets data.truncated. --fields keeps only the listed keys.");
     schema.set("exitCodes", exitCodeSpec());
@@ -1009,7 +1033,8 @@ std::string usageText()
     text += "Usage:\n";
     text += std::string(kProgram) + " [flags] <operation> [args]\n";
     text += std::string(kProgram) + " [flags] --command \"<operation> [args]\" [--command \"...\"]\n";
-    text += std::string(kProgram) + " [flags] --commands -    (one operation per line from stdin)\n\n";
+    text += std::string(kProgram) + " [flags] --commands -    (one operation per line from stdin)\n";
+    text += std::string(kProgram) + " --remote [flags] <operation> [args]    (run inside a running UsdStudio GUI)\n\n";
 
     text += "Flags:\n";
     for (const FlagEntry& entry : kFlags)
@@ -1145,6 +1170,11 @@ std::string agentHelpText(const CommandRegistry& commands, const QueryRegistry& 
          "(one operation per line on stdin). Output is JSON Lines; the exit code is the first failure.\n";
     t += "7. It is never interactive: no prompts, no paging. --yes is accepted and ignored.\n";
     t += "8. For the machine readable version of this contract, run --schema (flags, args, types, exit codes).\n";
+    t += "9. --remote sends the operations to the running UsdStudio GUI over a local pipe: live document, "
+         "same undo history as the user. Remote answers add an \"exit\":<code> member. No GUI listening: "
+         "exit 5 with a hint to start the GUI (remote control is on by default; its status bar shows the pipe "
+         "name; several GUIs: pick the name there and pass --pipe <name>). --help/--schema/--agent-help "
+         "always answer locally.\n";
 
     t += "\nOPERATIONS\n";
     for (const std::string& name : queries.queryNames())
@@ -1183,6 +1213,7 @@ std::string agentHelpText(const CommandRegistry& commands, const QueryRegistry& 
     t += "  usdstudio prim.define /Kitchen_set/Set0/Marker\n";
     t += "  usdstudio --dry-run attr.set /Kitchen_set/Set0/Marker inputs:lightingIntensity float4 \"1,1,1,1\"\n";
     t += "  usdstudio --command \"prim.define /M\" --command \"attr.set /M xray_visibility bool true\" --command \"history.undo\"\n";
+    t += "  usdstudio --remote stage.info            (drive the running GUI; see Doc/Agent-CLI-Skill.md)\n";
     return t;
 }
 
@@ -1207,7 +1238,205 @@ bool stdinIsInteractive()
 #endif
 }
 
+// ---------------------------------------------------------------------------
+// Remote mode: forward operation lines to a running UsdStudio GUI
+//
+// The wire protocol is line-based so the client needs no JSON parser: write
+// one operation line, read one compact JSON envelope back. The server appends
+// an '"exit":<code>' member as the last field of every answer, which the
+// client mirrors as its own exit code (last occurrence wins, so data strings
+// that mention the key cannot shadow it).
+// ---------------------------------------------------------------------------
+
+int extractRemoteExit(const std::string& answer)
+{
+    static constexpr std::string_view key = "\"exit\":";
+    const std::size_t pos = answer.rfind(key);
+    if (pos == std::string::npos)
+        return ExitInternal; // not an envelope we understand
+    try
+    {
+        return std::stoi(answer.substr(pos + key.size()));
+    }
+    catch (const std::exception&)
+    {
+        return ExitInternal;
+    }
+}
+
+#ifdef _WIN32
+
+class PipeHandle
+{
+public:
+    PipeHandle() = default;
+    explicit PipeHandle(HANDLE handle) : handle_(handle) {}
+    ~PipeHandle() { if (valid()) CloseHandle(handle_); }
+    PipeHandle(const PipeHandle&) = delete;
+    PipeHandle& operator=(const PipeHandle&) = delete;
+    PipeHandle(PipeHandle&& other) noexcept : handle_(other.handle_) { other.handle_ = INVALID_HANDLE_VALUE; }
+    PipeHandle& operator=(PipeHandle&& other) noexcept
+    {
+        if (this != &other)
+        {
+            if (valid()) CloseHandle(handle_);
+            handle_ = other.handle_;
+            other.handle_ = INVALID_HANDLE_VALUE;
+        }
+        return *this;
+    }
+    bool valid() const { return handle_ != INVALID_HANDLE_VALUE; }
+    HANDLE get() const { return handle_; }
+
+private:
+    HANDLE handle_ = INVALID_HANDLE_VALUE;
+};
+
+bool connectRemotePipe(const std::string& pipeName, PipeHandle& pipe, std::string& message, std::string& hint)
+{
+    std::wstring wide;
+    wide.reserve(pipeName.size());
+    for (const char c : pipeName)
+        wide.push_back(static_cast<wchar_t>(static_cast<unsigned char>(c)));
+    const std::wstring path = L"\\\\.\\pipe\\" + wide;
+
+    HANDLE handle = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (handle == INVALID_HANDLE_VALUE)
+    {
+        const DWORD lastError = GetLastError();
+        if (lastError == ERROR_PIPE_BUSY)
+        {
+            message = "The UsdStudio remote pipe '" + pipeName + "' is busy.";
+            hint = "Another CLI is talking to that instance. Wait for it to finish, or target another "
+                   "instance with --pipe <name> (the GUI status bar shows its pipe name).";
+        }
+        else
+        {
+            message = "No running UsdStudio instance is listening for remote control on pipe '" + pipeName + "'.";
+            hint = "Start the UsdStudio GUI: remote control is on by default and its status bar shows the pipe "
+                   "name. If several GUIs run, pass the name shown there with --pipe <name>.";
+        }
+        return false;
+    }
+
+    DWORD mode = PIPE_READMODE_BYTE;
+    SetNamedPipeHandleState(handle, &mode, nullptr, nullptr);
+    pipe = PipeHandle(handle);
+    return true;
+}
+
+bool writeRemoteLine(const PipeHandle& pipe, const std::string& line)
+{
+    const std::string data = line + "\n";
+    DWORD written = 0;
+    return WriteFile(pipe.get(), data.data(), static_cast<DWORD>(data.size()), &written, nullptr) != 0 &&
+        written == data.size();
+}
+
+bool readRemoteLine(const PipeHandle& pipe, std::string& line)
+{
+    line.clear();
+    char ch = 0;
+    DWORD got = 0;
+    for (;;)
+    {
+        if (!ReadFile(pipe.get(), &ch, 1, &got, nullptr) || got == 0)
+            return !line.empty();
+        if (ch == '\n')
+            return true;
+        if (ch != '\r')
+            line.push_back(ch);
+    }
+}
+
+#endif // _WIN32
+
+int runRemote(const std::vector<std::string>& operations, const Flags& flags, std::ostream& out, std::ostream& err)
+{
+    const std::string pipeName = flags.pipe.empty() ? std::string(kRemotePipeName) : flags.pipe;
+
+    auto reportLocalError = [&](const std::string& message, const std::string& hint)
+    {
+        Outcome o;
+        o.name = "remote";
+        fail(o, ErrorCode::Precondition, message, hint);
+        writeOutcome(out, err, o, flags, false);
+        return o.exitCode;
+    };
+
+#ifdef _WIN32
+    // Global --limit/--fields/--dry-run travel inside the operation line;
+    // the server-side evaluator understands them there.
+    std::string suffix;
+    if (flags.limit != kDefaultRowLimit)
+        suffix += " --limit " + std::to_string(flags.limit);
+    if (!flags.fields.empty())
+    {
+        suffix += " --fields ";
+        for (std::size_t i = 0; i < flags.fields.size(); ++i)
+            suffix += (i ? "," : "") + flags.fields[i];
+    }
+    if (flags.dryRun)
+        suffix += " --dry-run";
+
+    PipeHandle pipe;
+    std::string message;
+    std::string hint;
+    if (!connectRemotePipe(pipeName, pipe, message, hint))
+        return reportLocalError(message, hint);
+
+    int exitCode = ExitOk;
+    for (const std::string& line : operations)
+    {
+        if (!writeRemoteLine(pipe, line + suffix))
+            return reportLocalError("Connection to the UsdStudio remote pipe was lost while sending.",
+                "The GUI may have closed. Restart it and retry.");
+        std::string answer;
+        if (!readRemoteLine(pipe, answer))
+            return reportLocalError("The UsdStudio remote pipe closed before an answer arrived.",
+                "The GUI may have closed during the operation. Restart it and check the document state.");
+        out << answer << "\n";
+        const int code = extractRemoteExit(answer);
+        if (code != ExitOk && exitCode == ExitOk)
+            exitCode = code;
+    }
+    return exitCode;
+#else
+    (void)operations;
+    return reportLocalError("Remote control is only implemented with Windows named pipes in this build.",
+        "Use the local CLI without --remote, or run the UsdStudio GUI on Windows.");
+#endif
+}
+
 } // anonymous namespace
+
+// ---------------------------------------------------------------------------
+// CliSession: the evaluator shared by the CLI loop and the GUI remote server
+// ---------------------------------------------------------------------------
+
+CliSession::CliSession(AppContext& context, const CommandRegistry& commands, const QueryRegistry& queries)
+    : context_(&context)
+    , commands_(&commands)
+    , queries_(&queries)
+    , allOperationNames_(allOperationNames(commands, queries))
+{
+}
+
+CliSession::Result CliSession::evaluate(std::string_view line) const
+{
+    Outcome outcome;
+    runOperation(std::string(line), *context_, *commands_, *queries_, Flags{}, allOperationNames_, outcome);
+
+    // Remote clients mirror this exit code without parsing the error object;
+    // it is appended last so rfind("\"exit\":") finds our member.
+    Json response = responseJson(outcome);
+    response.set("exit", static_cast<long long>(outcome.exitCode));
+
+    Result result;
+    result.json = response.dump(true);
+    result.exitCode = outcome.exitCode;
+    return result;
+}
 
 // ---------------------------------------------------------------------------
 // Entry point
@@ -1323,6 +1552,8 @@ int run(const std::vector<std::string>& args, std::ostream& out, std::ostream& e
     }
 
     const bool batch = operations.size() > 1;
+    if (flags.remote)
+        return runRemote(operations, flags, out, err);
     for (const std::string& line : operations)
     {
         Outcome outcome;

@@ -10,9 +10,16 @@ USDStudio is a Qt C++ app which utilize the OpenUSD library to load, view and ch
   argument parsing from string tokens), `CommandHistory` (headless undo stack)
   and the document commands. Keep these files free of Qt includes so the same
   commands can run from the GUI, tests and the CLI/AI frontend.
-* `/Gui` - Qt widgets/QML shell (`UsdStudioGuiLib`). `UndoCommandAdapter` is
-  the only place where commands meet `QUndoStack`; `MainWindow` owns the
-  registry and the undo stack. The Scene Graph dock shows the stage through
+* `/Gui` - Qt widgets/QML shell (`UsdStudioGuiLib`). `MainWindow` owns the
+  Qt-free `CommandHistory` (undo/redo actions call it directly;
+  `UndoCommandAdapter`/`QUndoStack` is an alternative adapter kept for
+  reference in `UndoAdapterTests`). It also runs `CliServer`
+  (`Gui/Src/{Public,Private}/CliServer.*`): a named-pipe server
+  (`usdstudio-remote`, pid-suffixed for a second instance) that lets
+  `UsdStudioCmd --remote` drive the live document through the *same*
+  `CliSession` evaluator and undo history the user sees. The pipe name is
+  shown in the status bar; "Remote Control" in the File menu toggles it.
+  The Scene Graph dock shows the stage through
   `UsdStageModel`, a lazy `QAbstractItemModel` shadow tree (chunked
   `fetchMore`, `SdfPath` -> node map, filtering inside the model, refresh via
   `UsdNotice::ObjectsChanged`); `SceneTreeView` and `BreadcrumbBar` are the
@@ -30,6 +37,10 @@ USDStudio is a Qt C++ app which utilize the OpenUSD library to load, view and ch
   `--limit`/`--fields`, previews via `--dry-run`. When you change operations,
   flags or exit codes, update `--schema`/`--agent-help` and keep
   `App/Tests/CliTests.cpp` in sync - that test encodes the contract.
+  Preferred mode for agents: `--remote` (optionally `--pipe <name>`) sends the
+  operations to the running GUI - live document, shared undo history; answers
+  carry an extra `"exit":<code>` member. Start with `Doc/Agent-CLI-Skill.md`,
+  the agent skill document for driving a running instance.
 * New commands: implement `ICommand`, register it in `CommandRegistry`
   (`registerCommand<Cmd, Ctx, Args...>(name, help, context)`; the CLI-facing
   registrations live in `AppCommands.cpp`) and run it through the undo stack.

@@ -1,8 +1,13 @@
 // (c)2024 Juergen Riegel, mail@juergen-riegel.net
 #pragma once
 
+#include "../AppContext.h"
+#include "../Commands/CommandRegistry.h"
+#include "../Commands/QueryRegistry.h"
+
 #include <iosfwd>
 #include <string>
+#include <string_view>
 #include <vector>
 
 // Machine-first command line front-end for USDStudio.
@@ -27,6 +32,37 @@ enum ExitCode
     ExitNotFound = 4,     // a file, prim or attribute does not exist
     ExitFailed = 5,       // the operation was refused or failed
     ExitInternal = 6,     // unexpected error (OpenUSD or internal invariant)
+};
+
+// Default name of the local pipe a running UsdStudio GUI listens on for
+// remote control ('usdstudio --remote'). A second GUI instance falls back
+// to "<name>-<pid>"; the GUI status bar shows the active name.
+inline constexpr const char* kRemotePipeName = "usdstudio-remote";
+
+// Reusable evaluator: runs one operation line against a caller-owned
+// Document/CommandHistory pair. The CLI process uses it internally, and the
+// GUI's remote-control server reuses it, so a remote agent sees exactly the
+// same JSON contract (envelope, flags, exit codes) as the local CLI.
+class CliSession
+{
+public:
+    CliSession(AppContext& context, const CommandRegistry& commands, const QueryRegistry& queries);
+
+    struct Result
+    {
+        std::string json; // one compact JSON envelope line, no newline
+        int exitCode = ExitOk;
+    };
+
+    // 'line' is one operation: "<name> [args] [--limit N] [--fields a,b] [--dry-run]".
+    // Never throws: failures arrive as an ok:false envelope with an exit code.
+    Result evaluate(std::string_view line) const;
+
+private:
+    AppContext* context_;
+    const CommandRegistry* commands_;
+    const QueryRegistry* queries_;
+    std::vector<std::string> allOperationNames_;
 };
 
 // Runs one usdstudio invocation with 'args' given WITHOUT the program name.

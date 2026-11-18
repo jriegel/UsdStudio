@@ -9,6 +9,7 @@ set( ProjectSources
 	Private/UndoCommandAdapter.cpp
 	Private/UsdStageModel.cpp
 	Private/SceneTreeView.cpp
+	Private/CliServer.cpp
 	#Private/viewitem.cpp
 	#Private/scene.cpp
 	Private/resources.qrc
@@ -19,6 +20,7 @@ set( ProjectHeaders
 	Public/UndoCommandAdapter.h
 	Public/UsdStageModel.h
 	Public/SceneTreeView.h
+	Public/CliServer.h
 	#Public/viewitem.h
 	#Public/scene.h
 )

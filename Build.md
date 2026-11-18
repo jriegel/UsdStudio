@@ -118,6 +118,25 @@ The CLI executable does not deploy the OpenUSD DLLs next to itself; put the
 OpenUSD `bin` directory (e.g. `ThirdParty\OpenUsd_Build_Release\bin`) on
 `PATH` when running it.
 
+### Remote control of the running GUI
+
+`--remote` sends the operations to the running UsdStudio GUI instead of a
+local process: live document, shared undo history, identical envelopes (each
+answer gains an `"exit":<code>` member which the CLI mirrors as its process
+exit code). The GUI listens on the named pipe `usdstudio-remote` by default
+(toggle in the File menu, active pipe name in the status bar); a second GUI
+instance falls back to `usdstudio-remote-<pid>`, selectable with
+`--pipe <name>`. No listener: exit `5` with a hint.
+
+```bat
+WinBuild\VS2026\bin\Release\UsdStudioCmd.exe --remote stage.info
+WinBuild\VS2026\bin\Release\UsdStudioCmd.exe --remote stage.find Stove --limit 5
+WinBuild\VS2026\bin\Release\UsdStudioCmd.exe --remote attr.set /Foo width 1.5
+WinBuild\VS2026\bin\Release\UsdStudioCmd.exe --remote history.undo
+```
+
+For agents driving a live session, see `Doc\Agent-CLI-Skill.md`.
+
 ## Linux and macOS build
 
 Install a C++ compiler, CMake 3.30 or newer, Python 3 with development

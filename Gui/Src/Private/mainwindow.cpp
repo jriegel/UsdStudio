@@ -8,8 +8,6 @@
 #include <QtWidgets>
 #include <QQmlEngine>
 #include <QQuickWidget>
-#include <QUndoStack>
-#include <QUndoView>
 #include <assert.h>
 #include <iostream>
 #include <chrono>
@@ -21,9 +19,12 @@
 #include <string_view>
 
 #include <Document.h>
+#include <Commands/AppCommands.h>
+#include <Commands/CommandHistory.h>
 #include <Commands/CommandRegistry.h>
-#include <Commands/DocumentCommands.h>
-#include "../Public/UndoCommandAdapter.h"
+#include <Commands/QueryRegistry.h>
+#include <Cli/Cli.h>
+#include "../Public/CliServer.h"
 #include "../Public/UsdStageModel.h"
 #include "../Public/SceneTreeView.h"
 
@@ -39,10 +40,21 @@ MainWindow::MainWindow(QString versionString)
 
     document = new Document();
 
+    // The Qt-free CommandHistory is the single undo truth: menu actions,
+    // Ctrl+Z and remote agents (CLI '--remote') all share this one stack.
+    commandHistory = std::make_unique<CommandHistory>();
     commandRegistry = std::make_unique<CommandRegistry>();
+    queryRegistry = std::make_unique<QueryRegistry>();
+    appContext = std::make_unique<AppContext>(*document, *commandHistory);
     registerCommands();
 
-    undoStack = new QUndoStack(this);
+    // Remote control reuses the exact CLI evaluator on this live document.
+    cliSession = std::make_unique<UsdStudio::Cli::CliSession>(*appContext, *commandRegistry, *queryRegistry);
+    cliServer = std::make_unique<CliServer>(*cliSession, this);
+    connect(cliServer.get(), &CliServer::operationDone, this, [this]() {
+        refreshHistoryView();
+        updateDocumentUi();
+    });
 
     createActions();
     createStatusBar();
@@ -51,8 +63,7 @@ MainWindow::MainWindow(QString versionString)
     baseTitle = tr("UsdStudio ") + versionString + tr( " with USD 22");
     setWindowTitle(baseTitle);
 
-    // Title follows the document after every execute/undo/redo step.
-    connect(undoStack, &QUndoStack::indexChanged, this, &MainWindow::updateDocumentUi);
+    // Title/tree follow the document after every execute/undo/redo step.
     updateDocumentUi();
 
     setWindowIcon(QIcon(":/Resources/images/Icon128.png"));
@@ -62,6 +73,9 @@ MainWindow::MainWindow(QString versionString)
     readSettings();
 
     setAcceptDrops(true);
+
+    // Agents drive this instance through 'UsdStudioCmd --remote' by default.
+    startRemoteControl();
 
     // uses QQmlEngine and QQuickWidget 
     QQmlEngine* engine = new QQmlEngine(this);
@@ -121,10 +135,10 @@ void MainWindow::open()
 
 void MainWindow::registerCommands()
 {
-  commandRegistry->registerCommand<NewDocumentCommand, Document>(
-      "document.new", "Replaces the document with a new empty stage.", document);
-  commandRegistry->registerCommand<OpenDocumentCommand, Document, std::string>(
-      "document.open", "Opens a USD file: document.open <fileName>", document);
+  // One registration point for every frontend (AppCommands.cpp): document.*,
+  // prim.* and attr.* commands plus all queries, bound to this live
+  // document/history pair - the GUI, the CLI and remote agents stay aligned.
+  registerAppCommands(*commandRegistry, *queryRegistry, *appContext);
 }
 
 
@@ -136,18 +150,19 @@ bool MainWindow::runCommand(std::unique_ptr<ICommand> command)
 
   try
   {
-    // Execute before pushing: if execute() throws, the undo stack stays
-    // untouched. The adapter skips the redundant execution that
-    // QUndoStack::push triggers.
-    command->execute();
-    undoStack->push(new UndoCommandAdapter(std::move(command)));
-    return true;
+    // Execute + record atomically: if execute() throws, the command is
+    // dropped and the history stays unchanged.
+    commandHistory->executeAndPush(std::move(command));
   }
   catch (const std::exception& e)
   {
     statusBar()->showMessage(tr("Command failed: %1").arg(e.what()), 5000);
     return false;
   }
+
+  refreshHistoryView();
+  updateDocumentUi();
+  return true;
 }
 
 
@@ -167,6 +182,59 @@ void MainWindow::updateDocumentUi()
     stageModel->setStage(document ? document->getStage() : pxr::UsdStageRefPtr());
     statusBar()->showMessage(tr("%1 top level prim(s)").arg(stageModel->rowCount()), 3000);
   }
+}
+
+void MainWindow::refreshHistoryView()
+{
+  if (!historyView)
+    return;
+
+  historyView->clear();
+  const std::vector<std::string> entries = commandHistory->descriptions();
+  const std::size_t applied = commandHistory->undoDepth();
+  for (std::size_t i = 0; i < entries.size(); ++i)
+  {
+    const QString suffix = (i < applied) ? tr("  (applied)") : tr("  (redoable)");
+    historyView->addItem(QString::fromStdString(entries[i]) + suffix);
+  }
+  if (applied > 0 && applied <= static_cast<std::size_t>(historyView->count()))
+    historyView->setCurrentRow(static_cast<int>(applied) - 1);
+
+  if (undoAction)
+    undoAction->setEnabled(commandHistory->canUndo());
+  if (redoAction)
+    redoAction->setEnabled(commandHistory->canRedo());
+}
+
+void MainWindow::startRemoteControl()
+{
+  if (!cliServer || cliServer->isListening())
+    return;
+
+  QString activeName;
+  QString error;
+  if (!cliServer->start(QString::fromUtf8(UsdStudio::Cli::kRemotePipeName), activeName, error))
+  {
+    statusBar()->showMessage(tr("Remote control unavailable: %1").arg(error), 5000);
+    return;
+  }
+
+  if (!remoteStatusLabel)
+  {
+    remoteStatusLabel = new QLabel(this);
+    statusBar()->addPermanentWidget(remoteStatusLabel);
+  }
+  remoteStatusLabel->setText(tr("Remote: %1").arg(activeName));
+  remoteStatusLabel->setToolTip(
+    tr("CLI agents attach with: UsdStudioCmd --remote <operation>. Several GUIs: use --pipe %1.").arg(activeName));
+}
+
+void MainWindow::stopRemoteControl()
+{
+  if (cliServer)
+    cliServer->stop();
+  if (remoteStatusLabel)
+    remoteStatusLabel->setText(tr("Remote: off"));
 }
 
 void MainWindow::exportPrj()
@@ -262,6 +330,22 @@ void MainWindow::createActions()
   quitAct->setStatusTip(tr("Quit the application"));
   quitAct->setEnabled(true);
 
+  fileMenu->addSeparator();
+
+  // Lets 'UsdStudioCmd --remote' (typically an AI agent) operate on this live
+  // instance: same document, same undo history. On by default.
+  remoteControlAction = new QAction(tr("&Remote Control"), this);
+  remoteControlAction->setCheckable(true);
+  remoteControlAction->setChecked(true);
+  remoteControlAction->setStatusTip(tr("Let 'UsdStudioCmd --remote' drive this instance over a local pipe"));
+  connect(remoteControlAction, &QAction::toggled, this, [this](bool on) {
+    if (on)
+      startRemoteControl();
+    else
+      stopRemoteControl();
+  });
+  fileMenu->addAction(remoteControlAction);
+
 
 
 // =========================================================================================================
@@ -271,15 +355,31 @@ void MainWindow::createActions()
   QMenu *editMenu = menuBar()->addMenu(tr("&Edit"));
   QToolBar *editToolBar = addToolBar(tr("Edit"));
 
-  QAction *undoAction = undoStack->createUndoAction(this, tr("Undo"));
+  undoAction = new QAction(tr("Undo"), this);
   undoAction->setShortcuts(QKeySequence::Undo);
   undoAction->setStatusTip(tr("Undo the last command"));
+  undoAction->setEnabled(false);
+  connect(undoAction, &QAction::triggered, this, [this]() {
+    if (commandHistory->undo())
+    {
+      refreshHistoryView();
+      updateDocumentUi();
+    }
+  });
   editMenu->addAction(undoAction);
   editToolBar->addAction(undoAction);
 
-  QAction *redoAction = undoStack->createRedoAction(this, tr("Redo"));
+  redoAction = new QAction(tr("Redo"), this);
   redoAction->setShortcuts(QKeySequence::Redo);
   redoAction->setStatusTip(tr("Redo the last undone command"));
+  redoAction->setEnabled(false);
+  connect(redoAction, &QAction::triggered, this, [this]() {
+    if (commandHistory->redo())
+    {
+      refreshHistoryView();
+      updateDocumentUi();
+    }
+  });
   editMenu->addAction(redoAction);
   editToolBar->addAction(redoAction);
 
@@ -394,9 +494,11 @@ void MainWindow::createDockWindows()
 
   
   // Command History ==============================================================================================
+  // Fed from the Qt-free CommandHistory, the same stack remote agents drive.
   QDockWidget *historyDock = new QDockWidget(tr("Command History"), this);
   historyDock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
-  historyDock->setWidget(new QUndoView(undoStack, historyDock));
+  historyView = new QListWidget(historyDock);
+  historyDock->setWidget(historyView);
   addDockWidget(Qt::BottomDockWidgetArea, historyDock);
   historyDock->setVisible(true);
 

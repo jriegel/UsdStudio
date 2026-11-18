@@ -22,12 +22,17 @@ class QLineEdit;
 class QTimer;
 class QLabel;
 class QSlider;
-class QUndoStack;
+class QListWidget;
 QT_END_NAMESPACE
 
 class SceneTreeView;
 class UsdStageModel;
 class BreadcrumbBar;
+class CliServer;
+class CommandHistory;
+class QueryRegistry;
+struct AppContext;
+namespace UsdStudio::Cli { class CliSession; }
 
 class MainWindow : public QMainWindow
 {
@@ -69,15 +74,24 @@ private:
   void createStatusBar();
   void createDockWindows();
 
-  // Registers the Qt-free app commands against the MainWindow's registry
-  // and undo stack (see Commands/ in /App).
+  // Registers every app operation (commands + queries) against the shared
+  // registries/context (see AppCommands.cpp in /App - same entry point the
+  // CLI and the tests use).
   void registerCommands();
 
-  // Wraps a command into the QUndoStack; false if it failed.
+  // Runs the command through the shared CommandHistory; false if it failed.
   bool runCommand(std::unique_ptr<ICommand> command);
 
   // Syncs window title from the document's current file.
   void updateDocumentUi();
+
+  // Rebuilds the Command History dock from the CommandHistory and updates
+  // the Undo/Redo actions.
+  void refreshHistoryView();
+
+  // Toggles the '--remote' named-pipe server (live CLI control for agents).
+  void startRemoteControl();
+  void stopRemoteControl();
 
   void writeSettings();
   void readSettings();
@@ -101,8 +115,14 @@ private:
   QTimer *searchDebounce = nullptr;
 
   Document *document = nullptr;
-  QUndoStack *undoStack = nullptr;
+  // The Qt-free CommandHistory is the single undo truth, so menu actions,
+  // Ctrl+Z and remote agents (CLI '--remote') share one stack.
+  std::unique_ptr<CommandHistory> commandHistory;
   std::unique_ptr<CommandRegistry> commandRegistry;
+  std::unique_ptr<QueryRegistry> queryRegistry;
+  std::unique_ptr<AppContext> appContext;
+  std::unique_ptr<UsdStudio::Cli::CliSession> cliSession;
+  std::unique_ptr<CliServer> cliServer;
   QString baseTitle;
   
 
@@ -113,6 +133,11 @@ private:
   QAction *exportProjectAction = nullptr;
   QAction *newAction = nullptr;
   QAction *openAction = nullptr;
+  QAction *undoAction = nullptr;
+  QAction *redoAction = nullptr;
+  QAction *remoteControlAction = nullptr;
+  QListWidget *historyView = nullptr;
+  QLabel *remoteStatusLabel = nullptr;
 
  
 };
