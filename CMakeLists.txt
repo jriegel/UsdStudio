@@ -61,7 +61,8 @@ target_link_libraries(UsdStudioOpenUSD INTERFACE
   work
 )
 
-find_package(CLI11 CONFIG REQUIRED)
+# The CLI front-end parses its own arguments (see App/src/Private/Cli), so no
+# third-party CLI parser is needed here.
  
 
 

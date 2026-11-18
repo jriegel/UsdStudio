@@ -50,11 +50,13 @@ ctest --test-dir WinBuild\VS2026 -C Release --output-on-failure
 ```
 
 `UsdStudioAppTests` covers the Qt-free command framework (command registry,
-argument parsing, undo/redo) against `Data\Kitchen_set`; `UsdStudioGuiTests`
+argument parsing, undo/redo) against `Data\Kitchen_set`; `UsdStudioCliTests`
+covers the JSON CLI contract (envelope, flags, exit codes, batch mode) against
+the same data; `UsdStudioGuiTests`
 covers the Qt `QUndoStack` bridge; `UsdStageModelTests` covers the lazy
 `UsdStageModel` behind the Scene Graph dock (chunked `fetchMore`, path/index
 lookups, filtering and `UsdNotice` refresh) and also uses `Data\Kitchen_set`.
-All three need the Release configuration built first.
+All four need the Release configuration built first.
 
 The OpenUSD build installed by `ThirdParty\BuildUsd.bat` includes OpenSubdiv.
 CMake uses its OpenSubdiv and TBB package configurations from that installation
@@ -88,6 +90,33 @@ instead of any `pwsh.exe` on `PATH`. To fix the machine itself instead, remove o
 update the Store PowerShell preview, install the PowerShell 7.6.x MSI from
 <https://github.com/PowerShell/PowerShell/releases>, or set a non-empty
 `PSModulePath` value under `HKCU\Environment`.
+
+## Command line interface (`UsdStudioCmd`)
+
+`UsdStudioCmd.exe` (built from `App\Main`) is a headless, non-interactive
+front-end designed for scripts and AI agents. It speaks the same command
+registry as the GUI; the GUI itself never parses text.
+
+```bat
+WinBuild\VS2026\bin\Release\UsdStudioCmd.exe prim.define /Foo --type Xform
+WinBuild\VS2026\bin\Release\UsdStudioCmd.exe --command "prim.define /Foo" --command "attr.set /Foo width 1.5"
+WinBuild\VS2026\bin\Release\UsdStudioCmd.exe --agent-help
+```
+
+Each process starts with an empty document, so multi-step work runs as one
+batch of `--command "..."` lines (or piped stdin lines). Every operation
+answers with one deterministic JSON object on stdout; logs and notes never
+touch stdout and can be discarded with `2>nul`. Self-documentation:
+`--help`, `--schema` (machine-readable flags, commands, queries, actions,
+value types and exit codes), `--agent-help` (short token-cheap guide),
+`--types`. Useful flags: `--limit`, `--fields`, `--dry-run`, `--text`,
+`--pretty`/`--compact`, `--yes`. Errors carry a machine `code`, a resource in
+`context` and a human `hint`; unknown operation names include nearest-name
+suggestions. Exit codes equal the error codes: `0` ok, `2` usage, `3`
+invalidValue, `4` notFound, `5` failed/precondition, `6` internal error.
+The CLI executable does not deploy the OpenUSD DLLs next to itself; put the
+OpenUSD `bin` directory (e.g. `ThirdParty\OpenUsd_Build_Release\bin`) on
+`PATH` when running it.
 
 ## Linux and macOS build
 

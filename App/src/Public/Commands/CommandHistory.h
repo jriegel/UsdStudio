@@ -28,6 +28,11 @@ public:
     // Number of commands in the history (applied and redoable).
     std::size_t size() const { return commands_.size(); }
 
+    // Split of size(): entries below the cursor are applied, the rest can be
+    // redone. Used by the CLI's 'history.list' query.
+    std::size_t undoDepth() const { return cursor_; }
+    std::size_t redoDepth() const { return commands_.size() - cursor_; }
+
     // Text of all entries from oldest to newest (for logs and AI feedback).
     std::vector<std::string> descriptions() const;
 

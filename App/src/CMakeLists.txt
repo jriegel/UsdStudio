@@ -9,15 +9,31 @@ set( ProjectSources
 	Private/Commands/CommandRegistry.cpp
 	Private/Commands/CommandHistory.cpp
 	Private/Commands/DocumentCommands.cpp
+	Private/Commands/QueryRegistry.cpp
+	Private/Commands/StageQueries.cpp
+	Private/Commands/StageEditCommands.cpp
+	Private/Commands/AppCommands.cpp
+	Private/Cli/TypedValue.cpp
+	Private/Cli/Cli.cpp
 	
 )
 
 set( ProjectHeaders
 	Public/Document.h
+	Public/AppContext.h
 	Public/Commands/ICommand.h
 	Public/Commands/CommandRegistry.h
 	Public/Commands/CommandHistory.h
+	Public/Commands/CommandArgSpec.h
+	Public/Commands/CommandError.h
 	Public/Commands/DocumentCommands.h
+	Public/Commands/QueryRegistry.h
+	Public/Commands/StageQueries.h
+	Public/Commands/StageEditCommands.h
+	Public/Commands/AppCommands.h
+	Public/Cli/Json.h
+	Public/Cli/TypedValue.h
+	Public/Cli/Cli.h
 	
 )
 

@@ -5,7 +5,8 @@
 #include <algorithm>
 #include <sstream>
 
-void CommandRegistry::registerFactory(std::string name, std::string help, std::size_t argCount, FactoryFn factory)
+void CommandRegistry::registerFactory(std::string name, std::string help, std::size_t argCount,
+    std::size_t requiredCount, const std::vector<ArgSpec>& args, bool undoable, std::string usage, FactoryFn factory)
 {
     // Fill the entry after insertion: building CommandInfo while also using
     // 'name' as the key would depend on argument evaluation order.
@@ -16,6 +17,10 @@ void CommandRegistry::registerFactory(std::string name, std::string help, std::s
     it->second.name = std::move(name);
     it->second.help = std::move(help);
     it->second.argCount = argCount;
+    it->second.requiredCount = requiredCount;
+    it->second.args = args;
+    it->second.undoable = undoable;
+    it->second.usage = std::move(usage);
     it->second.factory = std::move(factory);
 }
 
@@ -50,7 +55,10 @@ std::string CommandRegistry::helpText() const
     for (const auto& name : commandNames())
     {
         const CommandInfo& info = commands_.at(name);
-        out << "  " << info.name << " (" << info.argCount << " args) - " << info.help << "\n";
+        out << "  " << info.usage;
+        if (!info.undoable)
+            out << "  [not undoable]";
+        out << " - " << info.help << "\n";
     }
     return out.str();
 }

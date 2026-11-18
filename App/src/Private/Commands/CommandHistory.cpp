@@ -9,6 +9,11 @@ void CommandHistory::executeAndPush(std::unique_ptr<ICommand> command)
 
     command->execute(); // throws -> command is dropped, history untouched
 
+    // Non-undoable operations (file I/O, ...) ran, but stay off the stack:
+    // undo/redo must not pretend they can be reverted.
+    if (!command->isUndoable())
+        return;
+
     commands_.resize(cursor_); // drop redoable tail
     commands_.push_back(std::move(command));
     ++cursor_;

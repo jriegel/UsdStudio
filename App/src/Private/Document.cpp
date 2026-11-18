@@ -53,3 +53,12 @@ bool Document::Save(const std::string& fileName)
 	this->fileName = fileName;
 	return true;
 }
+
+bool Document::isModified() const
+{
+	if (!stage)
+		return false;
+
+	pxr::SdfLayerHandle rootLayer = stage->GetRootLayer();
+	return rootLayer && rootLayer->IsDirty();
+}

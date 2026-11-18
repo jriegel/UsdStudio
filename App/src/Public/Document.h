@@ -27,6 +27,9 @@ public:
 	// Saves the current stage to 'fileName'. Returns false on failure.
 	bool Save(const std::string& fileName);
 
+	// True when the root layer has changes that were not saved yet.
+	bool isModified() const;
+
 	pxr::UsdStageRefPtr getStage() const { return stage; }
 
 	// Name of the file the stage was last opened from or saved to;

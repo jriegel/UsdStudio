@@ -6,8 +6,8 @@
 // Base interface of every data-modifying operation in UsdStudio.
 //
 // Commands are deliberately Qt-free so they can run from the GUI (via the
-// QUndoCommand adapter in /Gui), from scripts and from a future headless
-// CLI/AI frontend. Keep this header free of Qt includes.
+// QUndoCommand adapter in /Gui), from scripts and from the headless CLI/AI
+// frontend in App/src/Cli. Keep this header free of Qt includes.
 //
 // OpenUSD guidelines for implementations:
 //   * Reference prims by pxr::SdfPath only; never store UsdPrim objects,
@@ -30,6 +30,13 @@ public:
 
     // Human readable one-liner for undo views, logs and CLI echo.
     virtual std::string description() const = 0;
+
+    // False for operations whose effect cannot be reverted (writing a file,
+    // for example). Undo/redo stacks and the CLI schema use this to decide
+    // whether the command belongs on an undo stack at all. Commands that
+    // return false must also declare `static constexpr bool undoable = false;`
+    // so the registry can document it without an instance.
+    virtual bool isUndoable() const { return true; }
 
     // Hook to fold a following command into this one (e.g. many small
     // transform updates while dragging a gizmo). Default: never merge.

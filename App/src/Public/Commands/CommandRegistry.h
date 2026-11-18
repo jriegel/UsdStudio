@@ -1,12 +1,14 @@
 // (c)2024 Juergen Riegel, mail@juergen-riegel.net
 #pragma once
 
+#include "CommandArgSpec.h"
 #include "ICommand.h"
 
 #include "pxr/base/gf/vec3d.h"
 #include "pxr/usd/sdf/path.h"
 
 #include <cctype>
+#include <array>
 #include <charconv>
 #include <functional>
 #include <memory>
@@ -14,6 +16,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -72,8 +75,8 @@ T parseArg(std::string_view token)
 }
 
 // Splits "command.name arg1 arg2" into tokens for headless invocation
-// (tests, scripts, future CLI/AI). Whitespace separated only; quoted
-// arguments with spaces are not supported yet.
+// (tests, scripts, the CLI/AI front-end). Tokens are whitespace separated;
+// a double-quoted token may contain spaces ("C:\My Stage\set.usd").
 class CommandLine
 {
 public:
@@ -84,11 +87,24 @@ public:
         {
             while (i < line.size() && std::isspace(static_cast<unsigned char>(line[i])))
                 ++i;
-            const std::size_t start = i;
-            while (i < line.size() && !std::isspace(static_cast<unsigned char>(line[i])))
-                ++i;
-            if (start < i)
+            if (i >= line.size())
+                break;
+            if (line[i] == '"')
+            {
+                const std::size_t start = ++i;
+                while (i < line.size() && line[i] != '"')
+                    ++i;
                 owned_.emplace_back(line.substr(start, i - start));
+                if (i < line.size())
+                    ++i; // skip the closing quote
+            }
+            else
+            {
+                const std::size_t start = i;
+                while (i < line.size() && !std::isspace(static_cast<unsigned char>(line[i])))
+                    ++i;
+                owned_.emplace_back(line.substr(start, i - start));
+            }
         }
         for (const auto& part : owned_)
             tokens_.push_back(part);
@@ -115,11 +131,20 @@ public:
     using ArgSpan = std::span<const std::string_view>;
     using FactoryFn = std::function<std::unique_ptr<ICommand>(ArgSpan)>;
 
+    // Marks how many trailing constructor arguments may be left out on the
+    // command line; those parameters then receive an empty token, so they
+    // should be string/path-like rather than numeric.
+    struct OptionalTrailingArgs { std::size_t count = 0; };
+
     struct CommandInfo
     {
         std::string name;
         std::string help;
-        std::size_t argCount = 0;
+        std::size_t argCount = 0;       // total parameters, optional included
+        std::size_t requiredCount = 0;  // parameters that must be given
+        std::vector<ArgSpec> args;      // names + value types, for --help/--schema
+        std::string usage;              // "document.open <fileName>"
+        bool undoable = true;           // false = effect cannot be undone
         FactoryFn factory;
     };
 
@@ -128,7 +153,13 @@ public:
     template <typename CmdType, typename... Args>
     void registerCommand(std::string name, std::string help)
     {
-        registerImpl<CmdType, NoContext, Args...>(std::move(name), std::move(help), nullptr);
+        registerImpl<CmdType, NoContext, Args...>(std::move(name), std::move(help), nullptr, 0);
+    }
+
+    template <typename CmdType, typename... Args>
+    void registerCommand(std::string name, std::string help, OptionalTrailingArgs optional)
+    {
+        registerImpl<CmdType, NoContext, Args...>(std::move(name), std::move(help), nullptr, optional.count);
     }
 
     // Same, but binds a context object (e.g. the Document the app edits) as
@@ -136,7 +167,13 @@ public:
     template <typename CmdType, typename Ctx, typename... Args>
     void registerCommand(std::string name, std::string help, Ctx* context)
     {
-        registerImpl<CmdType, Ctx, Args...>(std::move(name), std::move(help), context);
+        registerImpl<CmdType, Ctx, Args...>(std::move(name), std::move(help), context, 0);
+    }
+
+    template <typename CmdType, typename Ctx, typename... Args>
+    void registerCommand(std::string name, std::string help, Ctx* context, OptionalTrailingArgs optional)
+    {
+        registerImpl<CmdType, Ctx, Args...>(std::move(name), std::move(help), context, optional.count);
     }
 
     // Builds (does not execute) the command for 'name'. Throws
@@ -162,31 +199,50 @@ private:
     struct NoContext;
 
     template <typename CmdType, typename Ctx, typename... Args>
-    void registerImpl(std::string name, std::string help, Ctx* context)
+    void registerImpl(std::string name, std::string help, Ctx* context, std::size_t optionalTrailing)
     {
-        // Note: 'key' is copied before the call so the map key and the
-        // lambda's copy of the name are independent regardless of argument
-        // evaluation order.
-        std::string key = name;
-        registerFactory(std::move(key), std::move(help), sizeof...(Args),
-            [context, cmdName = std::move(name)](ArgSpan args) -> std::unique_ptr<ICommand>
+        std::vector<std::string_view> declared;
+        if constexpr (HasArgNames<CmdType>)
+        {
+            const auto names = CmdType::argNames();
+            declared.assign(names.begin(), names.end());
+        }
+        constexpr std::size_t argCount = sizeof...(Args);
+        const std::vector<ArgSpec> specs = makeArgSpecs(std::move(declared), argTypeNames<Args...>(), optionalTrailing);
+        const std::string usage = makeUsage(name, specs);
+        const std::size_t required = argCount > optionalTrailing ? argCount - optionalTrailing : 0;
+
+        // Note: the map key is passed as a copy so the key and the lambda's
+        // capture stay independent regardless of evaluation order.
+        registerFactory(std::string(name), std::move(help), argCount, required, specs,
+            commandUndoable<CmdType>(), usage,
+            [context, usage, required, total = argCount](ArgSpan args) -> std::unique_ptr<ICommand>
             {
-                if (args.size() != sizeof...(Args))
-                    throw std::invalid_argument("Wrong number of arguments for command: " + cmdName);
-                return construct<CmdType, Ctx, Args...>(context, args, std::index_sequence_for<Args...>{});
+                if (args.size() < required || args.size() > total)
+                    throw std::invalid_argument("Wrong number of arguments for " + usage);
+                return construct<CmdType, Ctx, Args...>(context, args);
             });
     }
 
-    template <typename CmdType, typename Ctx, typename... Args, std::size_t... Is>
-    static std::unique_ptr<ICommand> construct(Ctx* context, ArgSpan args, std::index_sequence<Is...>)
+    template <typename CmdType, typename Ctx, typename... Args>
+    static std::unique_ptr<ICommand> construct(Ctx* context, ArgSpan args)
     {
-        if constexpr (std::is_same_v<Ctx, NoContext>)
-            return std::make_unique<CmdType>(parseArg<Args>(args[Is])...);
-        else
-            return std::make_unique<CmdType>(*context, parseArg<Args>(args[Is])...);
+        return constructImpl<CmdType, Ctx, Args...>(context, args, std::index_sequence_for<Args...>{});
     }
 
-    void registerFactory(std::string name, std::string help, std::size_t argCount, FactoryFn factory);
+    template <typename CmdType, typename Ctx, typename... Args, std::size_t... Is>
+    static std::unique_ptr<ICommand> constructImpl(Ctx* context, ArgSpan args, std::index_sequence<Is...>)
+    {
+        // Omitted optional arguments are parsed from an empty token.
+        const auto token = [args](std::size_t i) { return i < args.size() ? args[i] : std::string_view{}; };
+        if constexpr (std::is_same_v<Ctx, NoContext>)
+            return std::make_unique<CmdType>(parseArg<Args>(token(Is))...);
+        else
+            return std::make_unique<CmdType>(*context, parseArg<Args>(token(Is))...);
+    }
+
+    void registerFactory(std::string name, std::string help, std::size_t argCount, std::size_t requiredCount,
+        const std::vector<ArgSpec>& args, bool undoable, std::string usage, FactoryFn factory);
 
     std::unordered_map<std::string, CommandInfo> commands_;
 };

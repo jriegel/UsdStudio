@@ -5,7 +5,9 @@
 
 #include "pxr/usd/usd/stage.h"
 
+#include <array>
 #include <string>
+#include <string_view>
 
 class Document;
 
@@ -16,9 +18,13 @@ class OpenDocumentCommand : public ICommand
 public:
     OpenDocumentCommand(Document& document, std::string fileName);
 
-    void execute() override; // throws std::runtime_error if the file cannot be opened
+    // Throws CommandError (file not found / unreadable) so a caller can act
+    // on the failure instead of parsing the message.
+    void execute() override;
     void undo() override;
     std::string description() const override;
+
+    static constexpr std::array<std::string_view, 1> argNames() { return { "fileName" }; }
 
 private:
     Document& document_;
@@ -44,4 +50,28 @@ private:
 
     pxr::UsdStageRefPtr previousStage_;
     std::string previousFileName_;
+};
+
+// Writes the document's root layer to disk. Deliberately not undoable -
+// writing a file is an external effect the undo stack cannot revert.
+// Such commands must also declare 'undoable = false' so the registry can
+// report them as such (see CommandArgSpec.h).
+class SaveDocumentCommand : public ICommand
+{
+public:
+    SaveDocumentCommand(Document& document, std::string fileName);
+
+    // Throws CommandError when the layer cannot be written.
+    void execute() override;
+    void undo() override; // no-op: nothing was recorded
+    std::string description() const override;
+
+    static constexpr bool undoable = false;
+    bool isUndoable() const override { return false; }
+
+    static constexpr std::array<std::string_view, 1> argNames() { return { "fileName" }; }
+
+private:
+    Document& document_;
+    std::string fileName_;
 };
