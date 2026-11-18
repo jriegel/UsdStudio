@@ -496,12 +496,18 @@ void MainWindow::createDockWindows()
   // Command History ==============================================================================================
   // Fed from the Qt-free CommandHistory, the same stack remote agents drive.
   QDockWidget *historyDock = new QDockWidget(tr("Command History"), this);
-  historyDock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
+  historyDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
   historyView = new QListWidget(historyDock);
   historyDock->setWidget(historyView);
   addDockWidget(Qt::BottomDockWidgetArea, historyDock);
   historyDock->setVisible(true);
 
+  // Stack the two panels as tabs: each gets the full dock height instead of
+  // the bottom dock eating viewport space. The Scene Graph tab stays active;
+  // users can still drag the tabs apart to un-group them.
+  setTabPosition(Qt::AllDockWidgetAreas, QTabWidget::North);
+  tabifyDockWidget(dock, historyDock);
+  dock->raise();
 }
 
 void MainWindow::writeSettings()
