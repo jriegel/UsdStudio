@@ -27,6 +27,7 @@
 #include "../Public/CliServer.h"
 #include "../Public/UsdStageModel.h"
 #include "../Public/SceneTreeView.h"
+#include "../Public/HydraViewerWindow.h"
 
 using namespace std;
 using namespace chrono_literals;
@@ -87,6 +88,8 @@ MainWindow::MainWindow(QString versionString)
 
 MainWindow::~MainWindow() 
 {
+    if (hydraViewer)
+        hydraViewer->setDocument(nullptr);
     if (document) delete document;
 }
 
@@ -182,6 +185,11 @@ void MainWindow::updateDocumentUi()
     stageModel->setStage(document ? document->getStage() : pxr::UsdStageRefPtr());
     statusBar()->showMessage(tr("%1 top level prim(s)").arg(stageModel->rowCount()), 3000);
   }
+
+  // The Hydra viewer re-syncs its stage (and auto-frames) on every document
+  // change: open/undo/redo may swap the UsdStage behind the same Document.
+  if (hydraViewer)
+    hydraViewer->setDocument(document);
 }
 
 void MainWindow::refreshHistoryView()
@@ -268,6 +276,15 @@ void MainWindow::about()
     " (c) 2022 Mercedes Benz Tech Motion <br/>"
     " Contact: juergen.riegel@mercedes-benz.com "
   );
+}
+
+void MainWindow::openHydraViewer()
+{
+  if (!hydraViewer)
+      hydraViewer = std::make_unique<HydraViewerWindow>(document, this);
+  else
+      hydraViewer->setDocument(document);
+  hydraViewer->show();
 }
 
 void MainWindow::view_all()
@@ -427,8 +444,14 @@ void MainWindow::createActions()
   */
 
 
+  // View menu (the legacy view-all/zoom block above belongs to the dead GL
+  // view; the Hydra viewport gets its own fresh menu).
+  viewMenu = menuBar()->addMenu(tr("&View"));
+  QAction *hydraViewerAction = viewMenu->addAction(tr("&Hydra Viewer"), this, &MainWindow::openHydraViewer);
+  hydraViewerAction->setStatusTip(tr("Open the OpenUSD Hydra render-delegate viewport window"));
 
-  
+
+
   menuBar()->addSeparator();
 
   QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));

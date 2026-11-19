@@ -10,6 +10,11 @@ set( ProjectSources
 	Private/UsdStageModel.cpp
 	Private/SceneTreeView.cpp
 	Private/CliServer.cpp
+	Private/HydraViewerWindow.cpp
+	Private/HydraViewportItem.cpp
+	Private/HydraViewportRenderer.cpp
+	Private/HydraAovSource.cpp
+	Private/HydraCameraController.cpp
 	#Private/viewitem.cpp
 	#Private/scene.cpp
 	Private/resources.qrc
@@ -21,6 +26,11 @@ set( ProjectHeaders
 	Public/UsdStageModel.h
 	Public/SceneTreeView.h
 	Public/CliServer.h
+	Public/HydraViewerWindow.h
+	Public/HydraViewportItem.h
+	Public/HydraCameraController.h
+	Private/HydraViewportRenderer.h
+	Private/HydraAovSource.h
 	#Public/viewitem.h
 	#Public/scene.h
 )
@@ -57,6 +67,7 @@ target_link_libraries (UsdStudioGuiLib
 	    UsdStudioAppLib
 		Qt6::Core 
 		Qt6::Gui 
+		Qt6::GuiPrivate 
 		Qt6::Widgets 
 		Qt6::Network 
 		Qt6::Quick 
@@ -65,6 +76,15 @@ target_link_libraries (UsdStudioGuiLib
 		Qt6::OpenGL
 	PUBLIC
 		UsdStudioOpenUSD
+)
+
+# Hydra viewport composite shaders (GLSL -> .qsb for every RHI backend),
+# embedded through the auto-generated rcc into :/usdstudio/shaders/.
+qt_add_shaders(UsdStudioGuiLib "hydra_viewer_shaders"
+	PREFIX "/usdstudio"
+	FILES
+		Shaders/viewport.vert
+		Shaders/viewport.frag
 )
 
 #target_include_directories (UsdStudioGuiLib PUBLIC	)

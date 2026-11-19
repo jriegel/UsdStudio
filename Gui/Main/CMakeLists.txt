@@ -37,6 +37,7 @@ target_link_libraries(UsdStudio
           )
 
 if(WIN32)
+  file(GLOB OPENUSD_PLUGIN_DLLS "${OPENUSD_ROOT}/lib/usd_*.dll")
   add_custom_command(TARGET UsdStudio POST_BUILD
     COMMAND $<TARGET_FILE:Qt6::windeployqt>
       $<IF:$<CONFIG:Debug>,--debug,--release>
@@ -47,6 +48,11 @@ if(WIN32)
       $<TARGET_RUNTIME_DLLS:UsdStudio> $<TARGET_FILE_DIR:UsdStudio>
     COMMAND ${CMAKE_COMMAND} -E copy_directory
       "${OPENUSD_ROOT}/lib/usd" "$<TARGET_FILE_DIR:UsdStudio>/usd"
+    # Scene-index/renderer plugin DLLs (hdGp etc.) that are not link-time
+    # dependencies live in the OpenUSD lib dir; the plug system resolves
+    # their LibraryPath relative to the copied plugin tree under usd/.
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      ${OPENUSD_PLUGIN_DLLS} "$<TARGET_FILE_DIR:UsdStudio>"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
       "${OPENUSD_ROOT}/plugin/usd" "$<TARGET_FILE_DIR:UsdStudio>/../plugin/usd"
     COMMAND_EXPAND_LISTS

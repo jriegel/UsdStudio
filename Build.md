@@ -38,6 +38,23 @@ cmake --build WinBuild\VS2026 --config RelWithDebInfo --parallel
 The Release executables are placed in `WinBuild\VS2026\bin\Release`. To build a single
 target, add `--target UsdStudio` or `--target UsdStudioCmd`.
 
+### Hydra viewer prerequisites (HgiVulkan)
+
+The Hydra viewport (`View > Hydra Viewer`) renders Storm through
+`HgiVulkan`, which the OpenUSD build script does not package on Windows.
+`ThirdParty\BuildUsd.bat` uses `--usd-imaging` so the `usdImaging` /
+`usdImagingGL` bridge libraries are installed. Then build and install the
+HgiVulkan shared library into the same OpenUSD tree with
+
+```bat
+ThirdParty\BuildHgiVulkan.bat
+```
+
+It needs the Vulkan SDK (default `C:\VulkanSDK`, override with `VULKAN_SDK`)
+and vendors VulkanMemoryAllocator in `ThirdParty\vma`. CMake picks the
+installed `usd_hgiVulkan` import up automatically when present. The Qt6
+vcpkg manifest enables the `qtbase` `vulkan` feature for QRhi.
+
 Building `UsdStudio` also deploys its Qt runtime and linked OpenUSD DLLs and
 plugin metadata next to the executable.
 

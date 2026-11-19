@@ -29,6 +29,7 @@ class SceneTreeView;
 class UsdStageModel;
 class BreadcrumbBar;
 class CliServer;
+class HydraViewerWindow;
 class CommandHistory;
 class QueryRegistry;
 struct AppContext;
@@ -65,6 +66,9 @@ private Q_SLOTS:
   void view_all();
   void zoom_in();
   void zoom_out();
+
+  // Opens (or raises) the dedicated Hydra viewport window.
+  void openHydraViewer();
 
   
 
@@ -123,6 +127,7 @@ private:
   std::unique_ptr<AppContext> appContext;
   std::unique_ptr<UsdStudio::Cli::CliSession> cliSession;
   std::unique_ptr<CliServer> cliServer;
+  std::unique_ptr<HydraViewerWindow> hydraViewer;
   QString baseTitle;
   
 

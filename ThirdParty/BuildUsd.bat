@@ -46,4 +46,7 @@ if not exist %USD_BUILD_DIR% (
 
 
 rem Release-Version bauen
-python %USD_SRC_DIR%/build_scripts/build_usd.py %USD_BUILD_DIR% --imaging --no-docs --no-tests --embree --build-variant release --generator "Visual Studio 18 2026"
+REM --usd-imaging (not --imaging) also builds the usdImaging/usdImagingGL
+REM bridge that the Hydra viewport needs.  HgiVulkan is added separately by
+REM BuildHgiVulkan.bat; see Build.md.
+python %USD_SRC_DIR%/build_scripts/build_usd.py %USD_BUILD_DIR% --usd-imaging --no-docs --no-tests --embree --build-variant release --generator "Visual Studio 18 2026"

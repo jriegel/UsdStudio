@@ -18,5 +18,6 @@
         <file>Resources/images/next.png</file>
         <file alias="stylesheet.qss">Resources/darkorange.stylesheet</file>
         <file>Default.qml</file>
+        <file>Viewer.qml</file>
     </qresource>
 </RCC>

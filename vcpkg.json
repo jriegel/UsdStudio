@@ -2,8 +2,13 @@
     "name": "versions-test",
     "version": "1.0.0",
     "dependencies": [
-        "qtbase","qtdeclarative","qtquick3d","qt3d"
-        ,
+        "qtdeclarative",
+        {
+            "name": "qtbase",
+            "features": [
+                "vulkan"
+            ]
+        },
         {
             "name": "glew"
         },
