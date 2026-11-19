@@ -227,9 +227,9 @@ void HydraViewportRenderer::render(QRhiCommandBuffer* cb)
         if (_state.stage) {
             UsdImagingGLRenderParams params;
             // Scene lighting needs lights in the stage (or a lighting rig);
-            // until the viewer injects a default rig, unlit shading gives a
-            // predictable image - with enableLighting and no lights Storm
-            // renders pure black.
+            // verified: with enableLighting and no lights Storm renders pure
+            // black. Until the viewer injects a default rig, unlit shading
+            // gives the predictable image.
             params.enableLighting = false;
             params.drawMode = UsdImagingGLDrawMode::DRAW_GEOM_SMOOTH;
             _engine->Render(_state.stage->GetPseudoRoot(), params);

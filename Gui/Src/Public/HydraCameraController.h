@@ -40,7 +40,7 @@ public:
 
 private:
     GfVec3d _target{ 0.0, 0.0, 0.0 };
-    double _yaw = 0.0;      // degrees about world +Y
+    double _yaw = 35.0;     // degrees about world +Y (3/4 view on first fit)
     double _pitch = 20.0;   // degrees about the camera's local X
     double _distance = 10.0;
     double _fov = 90.0;     // matches the GfFrustum default window (+-1)
