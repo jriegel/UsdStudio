@@ -13,7 +13,12 @@ if [[ ! -f "$usd_script" ]]; then
     echo "ERROR: OpenUSD sources not found at $usd_script." >&2
     exit 1
 fi
+if [[ -z "${VULKAN_SDK:-}" || ! -d "$VULKAN_SDK" ]]; then
+    echo "ERROR: Set VULKAN_SDK to an installed Vulkan SDK." >&2
+    exit 1
+fi
 
+CPLUS_INCLUDE_PATH="$third_party_dir/vma/include${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}" \
 python3 "$usd_script" "$usd_install" \
-    --imaging --no-docs --no-tests --embree --build-variant release \
+    --usd-imaging --vulkan --no-usdview --no-docs --no-tests --embree --build-variant release \
     --python-install-dir lib/python "$@"

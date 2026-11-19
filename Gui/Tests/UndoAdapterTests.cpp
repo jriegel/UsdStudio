@@ -27,15 +27,22 @@ void check(bool condition, std::string_view what)
         ++failures;
 }
 
+struct Counts
+{
+    int executes = 0;
+    int undos = 0;
+};
+
 class CountingCommand : public ICommand
 {
 public:
-    void execute() override { ++executes; }
-    void undo() override { ++undos; }
+    explicit CountingCommand(Counts& counts) : counts_(counts) {}
+    void execute() override { ++counts_.executes; }
+    void undo() override { ++counts_.undos; }
     std::string description() const override { return "Counting"; }
 
-    int executes = 0;
-    int undos = 0;
+private:
+    Counts& counts_;
 };
 
 } // namespace
@@ -43,25 +50,25 @@ public:
 int main()
 {
     QUndoStack stack;
-    auto command = std::make_unique<CountingCommand>();
-    CountingCommand* observed = command.get();
+    Counts counts;
+    auto command = std::make_unique<CountingCommand>(counts);
 
     // MainWindow executes before pushing; the adapter must swallow the
     // redo() that QUndoStack::push performs.
-    observed->execute();
+    command->execute();
     stack.push(new UndoCommandAdapter(std::move(command)));
 
-    check(observed->executes == 1, "push does not re-execute an executed command");
-    check(observed->undos == 0, "push does not undo");
+    check(counts.executes == 1, "push does not re-execute an executed command");
+    check(counts.undos == 0, "push does not undo");
 
     stack.undo();
-    check(observed->undos == 1 && observed->executes == 1, "stack undo calls command undo");
+    check(counts.undos == 1 && counts.executes == 1, "stack undo calls command undo");
 
     stack.redo();
-    check(observed->executes == 2 && observed->undos == 1, "stack redo re-executes the command");
+    check(counts.executes == 2 && counts.undos == 1, "stack redo re-executes the command");
 
     stack.clear();
-    check(observed->executes == 2 && observed->undos == 1, "clear does not replay commands");
+    check(counts.executes == 2 && counts.undos == 1, "clear does not replay commands");
 
     std::cout << (failures == 0 ? "\nAll undo adapter tests passed.\n"
                                 : "\n" + std::to_string(failures) + " test(s) FAILED.\n");

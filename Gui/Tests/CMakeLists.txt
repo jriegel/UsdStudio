@@ -114,6 +114,10 @@ target_link_libraries(CliServerTests PRIVATE
 	Qt6::Gui
 	Qt6::Network
 )
+add_dependencies(CliServerTests UsdStudioCmd)
+target_compile_definitions(CliServerTests PRIVATE
+	USDSTUDIO_CMD_PATH="$<TARGET_FILE:UsdStudioCmd>"
+)
 
 set_target_properties(CliServerTests       PROPERTIES
           ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"

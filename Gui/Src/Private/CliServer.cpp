@@ -31,16 +31,30 @@ bool CliServer::start(const QString& baseName, QString& activeName, QString& err
     stop();
 
     std::unique_ptr<QLocalServer> server(new QLocalServer(this));
-    // Drop a stale endpoint from a crashed run before claiming the name.
-    QLocalServer::removeServer(baseName);
+    auto listen = [&](const QString& name) {
+        if (server->listen(name))
+            return true;
+        if (server->serverError() != QAbstractSocket::AddressInUseError)
+            return false;
+        QLocalSocket probe;
+        probe.connectToServer(name);
+        if (probe.waitForConnected(500))
+            return false;
+        if (probe.error() != QLocalSocket::ConnectionRefusedError &&
+            probe.error() != QLocalSocket::ServerNotFoundError)
+            return false;
+        return QLocalServer::removeServer(name) && server->listen(name);
+    };
     QString name = baseName;
-    if (!server->listen(name))
+    if (!listen(name))
     {
-        // A second GUI instance holds the canonical name; ours gets a pid
-        // suffix, which its status bar advertises for '--pipe <name>'.
+        if (server->serverError() != QAbstractSocket::AddressInUseError)
+        {
+            error = server->errorString();
+            return false;
+        }
         name = baseName + pidSuffix();
-        QLocalServer::removeServer(name);
-        if (!server->listen(name))
+        if (!listen(name))
         {
             error = server->errorString();
             return false;

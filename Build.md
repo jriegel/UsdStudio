@@ -164,6 +164,15 @@ On Debian/Ubuntu, vcpkg's dependency builds also require `bison`, `flex`,
 backend, install `^libxcb.*-dev`, `libx11-xcb-dev`, `libglu1-mesa-dev`,
 `libxrender-dev`, `libxi-dev`, `libxkbcommon-dev`, `libxkbcommon-x11-dev`,
 and `libegl1-mesa-dev`.
+The Hydra viewer requires a Vulkan-capable driver and the Vulkan SDK,
+including shaderc and the Vulkan utility headers (on Debian/Ubuntu,
+`vulkan-utility-libraries-dev` supplies `vk_enum_string_helper.h`). Set
+`VULKAN_SDK` to the SDK installation before building
+OpenUSD and configuring the GUI. Qt must include Vulkan support, Qt Quick,
+ShaderTools, and the matching Qt Gui private development headers. The
+repository supplies the Vulkan Memory Allocator headers used by OpenUSD.
+Follow the SDK's environment setup instructions so its runtime libraries
+are discoverable when running the application.
 The OpenUSD build downloads and compiles its dependencies and may take a long
 time. Set `VCPKG_ROOT` to a writable vcpkg checkout, or put its executable on
 `PATH`.
@@ -183,6 +192,18 @@ rather than deleting them. Arguments are passed to OpenUSD's build script, for
 example `./ThirdParty/BuildUsd.sh --jobs 4`. Python bindings are installed
 inside the OpenUSD installation directory.
 
+The GUI needs OpenUSD built with USD Imaging and Vulkan, which
+`BuildUsd.sh` enables. If an older OpenUSD installation exists, Setup does
+not rebuild it automatically: run `./ThirdParty/BuildUsd.sh` first, then
+rerun `./Setup.sh`.
+
 The executables are in `UnixBuild/bin`. Unlike the Windows build, Qt and
 OpenUSD runtimes are not deployed alongside the GUI executable.
+Launch the GUI with `./RunUsdStudio.sh` (or pass a different build directory
+as its first argument). OpenUSD reads `HGI_ENABLE_VULKAN` during library
+initialization, so the launcher sets it to `1` before starting the executable.
+Alternatively, export `HGI_ENABLE_VULKAN=1` before running the GUI directly.
+Run `ctest --test-dir UnixBuild --output-on-failure` after building; GUI
+tests require a usable Qt platform plugin. Remote control uses Unix-domain
+sockets in `TMPDIR` (or `/tmp` when `TMPDIR` is unset).
 

@@ -363,6 +363,14 @@ int main()
         check(r.code == ExitUsage, "a bad --limit value exits 2");
     }
 
+#ifndef _WIN32
+    {
+        const Result r = runCli({"--remote", "--pipe", std::string(200, 'x'), "stage.info"});
+        check(r.code == ExitFailed && contains(r.out, "socket path is too long"),
+              "an overlong remote socket path fails explicitly");
+    }
+#endif
+
     check(ExitUsage == 2 && ExitInvalidValue == 3 && ExitNotFound == 4 && ExitFailed == 5 &&
               ExitInternal == 6, "exit codes are distinct and documented");
 

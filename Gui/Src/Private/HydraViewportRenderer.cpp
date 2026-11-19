@@ -8,7 +8,6 @@
 #include "pxr/imaging/hd/renderBuffer.h"
 #include "pxr/imaging/hd/tokens.h"
 #include "pxr/imaging/hgi/tokens.h"
-#include "pxr/imaging/hgiVulkan/hgi.h"
 #include "pxr/usd/usd/prim.h"
 #include "pxr/usd/usd/stage.h"
 #include "pxr/usdImaging/usdImagingGL/engine.h"
@@ -18,6 +17,15 @@
 #include <QMetaObject>
 #include <rhi/qrhi.h>
 #include <rhi/qshader.h>
+
+#include "pxr/imaging/hgiVulkan/hgi.h"
+// Vulkan's Xlib platform headers define macros that collide with Qt and USD.
+#ifdef Bool
+#undef Bool
+#endif
+#ifdef None
+#undef None
+#endif
 
 PXR_NAMESPACE_USING_DIRECTIVE
 

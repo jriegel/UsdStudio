@@ -27,6 +27,12 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#else
+#include <cerrno>
+#include <cstring>
+#include <cstdlib>
+#include <sys/socket.h>
+#include <sys/un.h>
 #endif
 
 #include <algorithm>
@@ -1349,6 +1355,111 @@ bool readRemoteLine(const PipeHandle& pipe, std::string& line)
     }
 }
 
+#else
+
+class PipeHandle
+{
+public:
+    ~PipeHandle() { if (fd_ >= 0) close(fd_); }
+    PipeHandle(const PipeHandle&) = delete;
+    PipeHandle& operator=(const PipeHandle&) = delete;
+    PipeHandle() = default;
+    int get() const { return fd_; }
+    void reset(int fd) { if (fd_ >= 0) close(fd_); fd_ = fd; }
+
+private:
+    int fd_ = -1;
+};
+
+bool connectRemotePipe(const std::string& pipeName, PipeHandle& pipe, std::string& message, std::string& hint)
+{
+    const char* tmp = std::getenv("TMPDIR");
+    const std::string path = !pipeName.empty() && pipeName.front() == '/'
+        ? pipeName
+        : std::string(tmp && tmp[0] == '/' ? tmp : "/tmp") + "/" + pipeName;
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    if (path.size() >= sizeof(address.sun_path))
+    {
+        message = "The UsdStudio remote socket path is too long: '" + path + "'.";
+        hint = "Use a shorter --pipe <name> or TMPDIR.";
+        return false;
+    }
+    std::memcpy(address.sun_path, path.c_str(), path.size() + 1);
+    const int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0)
+    {
+        message = "Could not create the UsdStudio remote socket: " + std::string(std::strerror(errno));
+        hint = "Check the system's socket resources and retry.";
+        return false;
+    }
+    pipe.reset(fd);
+#ifdef SO_NOSIGPIPE
+    int noSigPipe = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, sizeof(noSigPipe)) != 0)
+    {
+        message = "Could not configure the UsdStudio remote socket: " + std::string(std::strerror(errno));
+        hint = "Check the system's socket configuration and retry.";
+        return false;
+    }
+#endif
+    if (connect(fd, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0)
+    {
+        const int error = errno;
+        if (error == ENOENT || error == ECONNREFUSED)
+        {
+            message = "No running UsdStudio instance is listening for remote control on pipe '" + pipeName + "'.";
+            hint = "Start the UsdStudio GUI, or select its status-bar pipe name with --pipe <name>.";
+        }
+        else
+        {
+            message = "Could not connect to UsdStudio remote pipe '" + pipeName + "': " + std::strerror(error);
+            hint = "Check the socket path and permissions, or select another instance with --pipe <name>.";
+        }
+        return false;
+    }
+    return true;
+}
+
+bool writeRemoteLine(const PipeHandle& pipe, const std::string& line)
+{
+    const std::string data = line + "\n";
+    std::size_t offset = 0;
+    while (offset < data.size())
+    {
+#ifdef MSG_NOSIGNAL
+        const int flags = MSG_NOSIGNAL;
+#else
+        const int flags = 0;
+#endif
+        const ssize_t sent = send(pipe.get(), data.data() + offset, data.size() - offset, flags);
+        if (sent < 0 && errno == EINTR)
+            continue;
+        if (sent <= 0)
+            return false;
+        offset += static_cast<std::size_t>(sent);
+    }
+    return true;
+}
+
+bool readRemoteLine(const PipeHandle& pipe, std::string& line)
+{
+    line.clear();
+    char ch;
+    for (;;)
+    {
+        const ssize_t received = recv(pipe.get(), &ch, 1, 0);
+        if (received < 0 && errno == EINTR)
+            continue;
+        if (received <= 0)
+            return false;
+        if (ch == '\n')
+            return true;
+        if (ch != '\r')
+            line.push_back(ch);
+    }
+}
+
 #endif // _WIN32
 
 int runRemote(const std::vector<std::string>& operations, const Flags& flags, std::ostream& out, std::ostream& err)
@@ -1364,7 +1475,6 @@ int runRemote(const std::vector<std::string>& operations, const Flags& flags, st
         return o.exitCode;
     };
 
-#ifdef _WIN32
     // Global --limit/--fields/--dry-run travel inside the operation line;
     // the server-side evaluator understands them there.
     std::string suffix;
@@ -1401,11 +1511,6 @@ int runRemote(const std::vector<std::string>& operations, const Flags& flags, st
             exitCode = code;
     }
     return exitCode;
-#else
-    (void)operations;
-    return reportLocalError("Remote control is only implemented with Windows named pipes in this build.",
-        "Use the local CLI without --remote, or run the UsdStudio GUI on Windows.");
-#endif
 }
 
 } // anonymous namespace

@@ -15,7 +15,10 @@
 #include <QCoreApplication>
 #include <QDeadlineTimer>
 #include <QLocalSocket>
+#include <QProcess>
+#include <QProcessEnvironment>
 #include <QString>
+#include <QTemporaryDir>
 
 #include <iostream>
 #include <string>
@@ -89,6 +92,11 @@ int main(int argc, char** argv)
     check(server.start(pipeName, activeName, error), "server starts listening: " + error.toStdString());
     check(activeName == pipeName, "server reports the requested pipe name");
 
+    CliServer secondServer(session);
+    QString secondName;
+    check(secondServer.start(pipeName, secondName, error), "second server starts: " + error.toStdString());
+    check(secondName != pipeName, "second server uses a distinct pipe name");
+
     QLocalSocket socket;
     socket.connectToServer(pipeName);
     check(socket.waitForConnected(3000), "client connects to the pipe");
@@ -130,6 +138,42 @@ int main(int argc, char** argv)
         check(false, "history.list got a response");
 
     check(history.undoDepth() == 1 && history.canUndo(), "GUI-side history received the remote command");
+
+    QProcess cli;
+    cli.start(QString::fromUtf8(USDSTUDIO_CMD_PATH),
+              {QStringLiteral("--remote"), QStringLiteral("--pipe"), pipeName,
+               QStringLiteral("--command"), QStringLiteral("stage.info"),
+               QStringLiteral("--command"), QStringLiteral("history.list")});
+    check(waitFor([&]() { return cli.state() == QProcess::NotRunning; }),
+          "CLI remote process completes");
+    const std::string cliOutput = cli.readAllStandardOutput().toStdString();
+    check(cli.exitStatus() == QProcess::NormalExit && cli.exitCode() == 0,
+          "CLI remote process succeeds");
+    check(contains(cliOutput, "stage.info") && contains(cliOutput, "New document"),
+          "CLI connects to the original server and receives both responses");
+    secondServer.stop();
+
+#ifndef _WIN32
+    QTemporaryDir directory;
+    check(directory.isValid(), "temporary socket directory created");
+    CliServer customServer(session);
+    QString customName;
+    check(customServer.start(directory.path() + "/custom", customName, error),
+          "server starts at an absolute socket path");
+    QProcess customCli;
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("TMPDIR"), directory.path());
+    customCli.setProcessEnvironment(environment);
+    customCli.start(QString::fromUtf8(USDSTUDIO_CMD_PATH),
+                    {QStringLiteral("--remote"), QStringLiteral("--pipe"),
+                     QStringLiteral("custom"), QStringLiteral("stage.info")});
+    check(waitFor([&]() { return customCli.state() == QProcess::NotRunning; }),
+          "CLI connects using TMPDIR");
+    check(customCli.exitStatus() == QProcess::NormalExit && customCli.exitCode() == 0 &&
+              contains(customCli.readAllStandardOutput().toStdString(), "\"exit\":0"),
+          "CLI receives a response through the custom socket directory");
+    customServer.stop();
+#endif
 
     // 4. Two lines in one write must produce two response lines (framing).
     socket.write("stage.info\nhistory.list\n");

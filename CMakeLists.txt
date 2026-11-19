@@ -64,35 +64,35 @@ target_link_libraries(UsdStudioOpenUSD INTERFACE
   work
 )
 
-# Hydra imaging stack for the viewport (see Doc plan: QQuickRhiItem + HgiVulkan).
-target_link_libraries(UsdStudioOpenUSD INTERFACE
-  garch
-  geomUtil
-  glf
-  cameraUtil
-  hd
-  hdMtlx
-  hdSt
-  hdsi
-  hdx
-  hgi
-  hgiGL
-  hgiInterop
-  usdImaging
-  usdImagingGL
-)
+if(BUILD_GUI)
+  foreach(usd_target IN ITEMS hd hdSt hgi usdImaging usdImagingGL)
+    if(NOT TARGET ${usd_target})
+      message(FATAL_ERROR
+        "OpenUSD is missing ${usd_target}. Rebuild OpenUSD with USD imaging; see Build.md.")
+    endif()
+  endforeach()
 
-# hgiVulkan is not part of the pxr export set: it is built separately via
-# ThirdParty/BuildHgiVulkan.bat and installed into the same tree. Link it
-# implicitly so Qt/Storm pick it up at runtime; explicit C++ use links the
-# imported target below.
-if(EXISTS "${OPENUSD_ROOT}/lib/usd_hgiVulkan.lib")
-  add_library(UsdStudioHgiVulkan SHARED IMPORTED GLOBAL)
-  set_target_properties(UsdStudioHgiVulkan PROPERTIES
-    IMPORTED_IMPLIB "${OPENUSD_ROOT}/lib/usd_hgiVulkan.lib"
-    IMPORTED_LOCATION "${OPENUSD_ROOT}/lib/usd_hgiVulkan.dll")
-  target_include_directories(UsdStudioHgiVulkan INTERFACE "${OPENUSD_ROOT}/include")
-  target_link_libraries(UsdStudioOpenUSD INTERFACE UsdStudioHgiVulkan)
+  if(TARGET hgiVulkan)
+    find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
+    set(USDSTUDIO_HGI_VULKAN hgiVulkan)
+  elseif(WIN32 AND EXISTS "${OPENUSD_ROOT}/lib/usd_hgiVulkan.lib")
+    add_library(UsdStudioHgiVulkan SHARED IMPORTED GLOBAL)
+    set_target_properties(UsdStudioHgiVulkan PROPERTIES
+      IMPORTED_IMPLIB "${OPENUSD_ROOT}/lib/usd_hgiVulkan.lib"
+      IMPORTED_LOCATION "${OPENUSD_ROOT}/lib/usd_hgiVulkan.dll")
+    target_include_directories(UsdStudioHgiVulkan INTERFACE "${OPENUSD_ROOT}/include")
+    set(USDSTUDIO_HGI_VULKAN UsdStudioHgiVulkan)
+  else()
+    message(FATAL_ERROR
+      "OpenUSD is missing HgiVulkan. Rebuild it with Vulkan support; see Build.md.")
+  endif()
+
+  add_library(UsdStudioImaging INTERFACE)
+  target_include_directories(UsdStudioImaging INTERFACE
+    "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/vma/include")
+  target_link_libraries(UsdStudioImaging INTERFACE
+    garch geomUtil glf cameraUtil hd hdMtlx hdSt hdsi hdx
+    hgi hgiGL hgiInterop usdImaging usdImagingGL ${USDSTUDIO_HGI_VULKAN})
 endif()
 
 # The CLI front-end parses its own arguments (see App/src/Private/Cli), so no

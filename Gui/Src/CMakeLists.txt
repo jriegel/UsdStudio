@@ -78,6 +78,7 @@ target_link_libraries (UsdStudioGuiLib
 		Qt6::OpenGL
 	PUBLIC
 		UsdStudioOpenUSD
+		UsdStudioImaging
 )
 
 # Hydra viewport composite shaders (GLSL -> .qsb for every RHI backend),

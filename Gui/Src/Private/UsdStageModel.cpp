@@ -2,7 +2,7 @@
 
 #include <pxr/base/tf/token.h>
 #include <pxr/base/tf/weakPtr.h>
-#include <pxr/base/tf/weakbase.h>
+#include <pxr/base/tf/weakBase.h>
 #include <pxr/usd/sdf/types.h>
 #include <pxr/usd/usd/primFlags.h>
 #include <pxr/usd/usd/primRange.h>

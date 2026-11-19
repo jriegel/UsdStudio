@@ -21,7 +21,7 @@
 #include "pxr/base/gf/quatf.h"
 #include "pxr/base/gf/quatd.h"
 #include "pxr/base/gf/quath.h"
-#include "pxr/base/gf/timecode.h"
+#include "pxr/base/gf/timeCode.h"
 #include "pxr/base/gf/half.h"
 #include "pxr/usd/sdf/assetPath.h"
 #include "pxr/usd/sdf/path.h"
@@ -574,10 +574,10 @@ Json arrayToJson(const VtValue& value, const Resolved& r)
     switch (r.kind) {
     case Kind::Bool:    tryVector(bool{}); break;
     case Kind::Int:     tryVector(int{}); break;
-    case Kind::UInt:    tryVector(unsigned int{}); break;
+    case Kind::UInt:    tryVector(0u); break;
     case Kind::Int64:   tryVector(std::int64_t{}); break;
     case Kind::UInt64:  tryVector(std::uint64_t{}); break;
-    case Kind::UChar:   tryVector(unsigned char{}); break;
+    case Kind::UChar:   tryVector(static_cast<unsigned char>(0)); break;
     case Kind::Float:
         if (r.width == 1) { if (!tryVector(float{}))   tryVector(GfHalf{}); }
         else if (r.width == 2) { if (!tryVector(GfVec2f{})) tryVector(GfVec2h{}); }
