@@ -7,6 +7,7 @@
 
 #include <QtWidgets>
 #include <QQmlEngine>
+#include <QQmlError>
 #include <QQuickWidget>
 #include <assert.h>
 #include <iostream>
@@ -28,6 +29,7 @@
 #include "../Public/UsdStageModel.h"
 #include "../Public/SceneTreeView.h"
 #include "../Public/HydraViewerWindow.h"
+#include "../Public/HydraViewportItem.h"
 
 using namespace std;
 using namespace chrono_literals;
@@ -78,11 +80,26 @@ MainWindow::MainWindow(QString versionString)
     // Agents drive this instance through 'UsdStudioCmd --remote' by default.
     startRemoteControl();
 
-    // uses QQmlEngine and QQuickWidget 
+    // uses QQmlEngine and QQuickWidget
+    // Default.qml hosts the Hydra viewport as the central 3D viewer; the rest
+    // of its scene (toolbar, hints) is Qt Quick UI layered on top of it.
+    HydraViewportItem::registerQmlType();
     QQmlEngine* engine = new QQmlEngine(this);
+    engine->addImportPath(QCoreApplication::applicationDirPath() + QStringLiteral("/qml"));
     QQuickWidget* view = new QQuickWidget(engine, this);
+    view->setResizeMode(QQuickWidget::SizeRootObjectToView);
 
     view->setSource(QUrl("qrc:/Default.qml"));
+    if (view->status() == QQuickWidget::Error) {
+        QString msg;
+        for (const auto& e : view->errors())
+            msg += e.toString() + '\n';
+        qWarning("MainWindow: Default.qml failed to load: %s",
+                 qUtf8Printable(msg));
+    }
+    if (auto* root = view->rootObject())
+        if (auto* viewport = root->findChild<HydraViewportItem*>())
+            viewport->setDocument(document);
     this->setCentralWidget(view);
 }
 
