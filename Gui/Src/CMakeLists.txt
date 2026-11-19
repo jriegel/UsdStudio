@@ -15,6 +15,7 @@ set( ProjectSources
 	Private/HydraViewportRenderer.cpp
 	Private/HydraAovSource.cpp
 	Private/HydraCameraController.cpp
+	Private/ViewerVulkanInstance.cpp
 	#Private/viewitem.cpp
 	#Private/scene.cpp
 	Private/resources.qrc
@@ -31,6 +32,7 @@ set( ProjectHeaders
 	Public/HydraCameraController.h
 	Private/HydraViewportRenderer.h
 	Private/HydraAovSource.h
+	Private/ViewerVulkanInstance.h
 	#Public/viewitem.h
 	#Public/scene.h
 )

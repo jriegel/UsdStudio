@@ -6,29 +6,23 @@
 #include <QCoreApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
-#include <QSGRendererInterface>
 #include <QUrl>
 #include <QVulkanInstance>
+
+#include "ViewerVulkanInstance.h"
 
 HydraViewerWindow::HydraViewerWindow(Document* document, QObject* parent)
     : QObject(parent), _document(document)
 {
     HydraViewportItem::registerQmlType();
 
-    // A window-local QVulkanInstance makes Qt's scene graph pick the Vulkan
-    // backend for this window only. Qt creates the VkInstance; Hydra's HgiVulkan
-    // lives separately on the render thread (AOV hand-off via HydraAovSource).
-    // Qt 6.8: QVulkanInstance is not a QObject, so it is deleted by hand in
-    // the destructor (after the window is gone).
-    _vkInstance = new QVulkanInstance();
-    // The scene graph only uses Vulkan if we ask for it *and* initialize the
-    // QVulkanInstance before the window is created. Storm's Hgi is Vulkan and
-    // phase-B AOV interop wants the same API; the D3D11 fallback stays usable
-    // (dummy vertex buffer is bound for the blit draw).
-    if (!_vkInstance->create())
-        qWarning("HydraViewer: QVulkanInstance init failed, falling back to another RHI backend");
-    else
-        QQuickWindow::setGraphicsApi(QSGRendererInterface::Vulkan);
+    // Shared process-wide QVulkanInstance (also used by the central viewer
+    // window); it forces the Vulkan RHI backend app-wide. Hydra's HgiVulkan
+    // still lives separately on the render thread (AOV hand-off via
+    // HydraAovSource; device sharing is the M3 zero-copy step).
+    // Qt 6.8: QVulkanInstance is not a QObject and is owned by the helper,
+    // so we only reference it here.
+    _vkInstance = ViewerVulkanInstance::ensure();
     _engine = new QQmlApplicationEngine(this);
     // vcpkg's Qt keeps QLibraryInfo paths pointing into the vcpkg tree, which
     // does not hold the deployed QML modules; windeployqt copies them next to
@@ -41,7 +35,8 @@ HydraViewerWindow::HydraViewerWindow(Document* document, QObject* parent)
         qWarning("HydraViewer: failed to instantiate qrc:/Viewer.qml");
         return;
     }
-    _window->setVulkanInstance(_vkInstance);
+    if (_vkInstance)
+        _window->setVulkanInstance(_vkInstance);
 
     if (auto* item = _window->findChild<HydraViewportItem*>()) {
         _item = item;
@@ -59,8 +54,7 @@ HydraViewerWindow::~HydraViewerWindow()
     _engine = nullptr;
     _window = nullptr;
     _item = nullptr;
-    delete _vkInstance;
-    _vkInstance = nullptr;
+    _vkInstance = nullptr; // owned by ViewerVulkanInstance
 }
 
 void HydraViewerWindow::setDocument(Document* document)

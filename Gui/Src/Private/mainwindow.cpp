@@ -8,7 +8,8 @@
 #include <QtWidgets>
 #include <QQmlEngine>
 #include <QQmlError>
-#include <QQuickWidget>
+#include <QQuickView>
+#include "../Private/ViewerVulkanInstance.h"
 #include <assert.h>
 #include <iostream>
 #include <chrono>
@@ -80,27 +81,40 @@ MainWindow::MainWindow(QString versionString)
     // Agents drive this instance through 'UsdStudioCmd --remote' by default.
     startRemoteControl();
 
-    // uses QQmlEngine and QQuickWidget
-    // Default.qml hosts the Hydra viewport as the central 3D viewer; the rest
-    // of its scene (toolbar, hints) is Qt Quick UI layered on top of it.
+    // Central 3D viewer: a Vulkan-backed QQuickView embedded into the widget
+    // hierarchy via QWindowContainer. QQuickWidget can only render through the
+    // OpenGL-based RHI backend; a real window uses the shared QVulkanInstance
+    // so the whole app's scene graph runs on Vulkan (matching Hydra's
+    // HgiVulkan). Default.qml fills the window; the Hydra viewport plus Qt
+    // Quick overlay UI live inside it.
     HydraViewportItem::registerQmlType();
+    // Must run before the first QQuickWindow/QQuickView is constructed: the
+    // window latches its surface type at construction from the global graphics
+    // API, and we need it to pick VulkanSurface, not the Direct3D default.
+    auto* vk = ViewerVulkanInstance::ensure();
     QQmlEngine* engine = new QQmlEngine(this);
+    // vcpkg's Qt keeps QLibraryInfo paths pointing into the vcpkg tree, which
+    // does not hold the deployed QML modules; windeployqt copies them next to
+    // the executable, so add that location explicitly.
     engine->addImportPath(QCoreApplication::applicationDirPath() + QStringLiteral("/qml"));
-    QQuickWidget* view = new QQuickWidget(engine, this);
-    view->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    QQuickView* quickView = new QQuickView(engine, nullptr);
+    if (vk)
+        quickView->setVulkanInstance(vk);
+    quickView->setColor(Qt::black);
+    quickView->setResizeMode(QQuickView::SizeRootObjectToView);
 
-    view->setSource(QUrl("qrc:/Default.qml"));
-    if (view->status() == QQuickWidget::Error) {
+    quickView->setSource(QUrl("qrc:/Default.qml"));
+    if (quickView->status() == QQuickView::Error) {
         QString msg;
-        for (const auto& e : view->errors())
+        for (const auto& e : quickView->errors())
             msg += e.toString() + '\n';
         qWarning("MainWindow: Default.qml failed to load: %s",
                  qUtf8Printable(msg));
     }
-    if (auto* root = view->rootObject())
-        if (auto* viewport = root->findChild<HydraViewportItem*>())
-            viewport->setDocument(document);
-    this->setCentralWidget(view);
+    if (auto* viewport = quickView->findChild<HydraViewportItem*>())
+        viewport->setDocument(document);
+
+    this->setCentralWidget(createWindowContainer(quickView, this));
 }
 
 MainWindow::~MainWindow() 
