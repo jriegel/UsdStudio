@@ -8,6 +8,8 @@ Install Visual Studio 2026 Community or Professional with C++ build tools,
 CMake 4.2 or newer,
 Python with development headers, and vcpkg. Make sure `python`, `cmake`, and
 the desired `vcpkg.exe` are on `PATH`.
+Setup uses a usable SDK selected by `VULKAN_SDK` or the Windows environment
+registry; otherwise, it attempts to install the Vulkan SDK through WinGet.
 
 From a Command Prompt in the repository root, configure the project:
 
@@ -17,8 +19,11 @@ Setup.bat
 
 Setup builds OpenUSD if its installation directory is absent, then configures
 CMake in `WinBuild\VS2026`, leaving an existing VS 2022 `WinBuild` cache
-untouched. Alternatively, if OpenUSD is already built, configure
-CMake directly (adjust the vcpkg path):
+untouched. The Windows OpenUSD build includes USD imaging but omits the
+standalone `usdview` application, so PySide is not required. Setup also builds
+HgiVulkan when its installed library or plugin is missing, including on a retry
+after an interrupted HgiVulkan build. Alternatively, if OpenUSD is already
+built, configure CMake directly (adjust the vcpkg path):
 
 ```bat
 set "VCPKG_ROOT=C:\Tools\vcpkg"

@@ -120,10 +120,7 @@ target_compile_definitions(usd_hgiInterop PRIVATE
 
 # Same libraries the packages' own CMakeLists.txt ask for.
 target_link_libraries(usd_hgi PRIVATE arch gf hio plug tf trace)
-# No "hgiVulkan" imported pxr target exists in the stock install (it was
-# configured without Vulkan), so reference the import lib by path.
 target_link_libraries(usd_hgiInterop PRIVATE garch gf hgi tf vt Vulkan::Vulkan)
-target_link_libraries(usd_hgiInterop PRIVATE "${OPENUSD_ROOT}/lib/usd_hgiVulkan.lib")
 
 add_library(usd_hgiVulkan SHARED ${HGIVULKAN_SOURCES})
 set_target_properties(usd_hgiVulkan PROPERTIES
@@ -174,6 +171,8 @@ target_link_libraries(usd_hgiVulkan PRIVATE
   trace
   Vulkan::Vulkan
   Vulkan::shaderc_combined)
+
+target_link_libraries(usd_hgiInterop PRIVATE usd_hgiVulkan)
 
 # Install into the OpenUSD tree with the layout the rest of the install uses.
 install(TARGETS usd_hgi usd_hgiInterop usd_hgiVulkan

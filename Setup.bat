@@ -1,4 +1,6 @@
 @echo off
+setlocal EnableDelayedExpansion
+
 REM SetupScript Juergen Riegel 
 echo  [32mSetup the build environment.[0m
 
@@ -16,6 +18,85 @@ call "%VS_VCVARS%"
 if errorlevel 1 (
     echo ERROR: Failed to initialize the Visual Studio build environment.
     pause
+    exit /b 1
+)
+
+echo [1/3] Checking for an installed Vulkan SDK...
+set "DETECTED_VULKAN_SDK="
+call :CheckVulkanSdk
+if not errorlevel 1 set "DETECTED_VULKAN_SDK=%VULKAN_SDK%"
+endlocal & set "DETECTED_VULKAN_SDK=%DETECTED_VULKAN_SDK%"
+call :ReloadEnv
+if defined DETECTED_VULKAN_SDK set "VULKAN_SDK=%DETECTED_VULKAN_SDK%"
+call :CheckVulkanSdk
+if not errorlevel 1 goto :VulkanInstalled
+
+echo [2/3] Installing LunarG Vulkan SDK via WinGet...
+winget install -e --id KhronosGroup.VulkanSDK --accept-package-agreements --accept-source-agreements
+if %ERRORLEVEL% neq 0 (
+    echo Note: WinGet returned code %ERRORLEVEL% ^(it may already be installed^). Continuing...
+)
+
+echo Reloading environment variables from Registry...
+call :ReloadEnv
+goto :Verify
+
+:VulkanInstalled
+echo [2/3] Vulkan SDK found at %VULKAN_SDK%; skipping WinGet.
+goto :Verify
+
+:CheckVulkanSdk
+if not defined VULKAN_SDK exit /b 1
+if not exist "%VULKAN_SDK%\Include\vulkan\vulkan.h" exit /b 1
+if not exist "%VULKAN_SDK%\Lib\vulkan-1.lib" exit /b 1
+if not exist "%VULKAN_SDK%\Lib\shaderc_combined.lib" exit /b 1
+exit /b 0
+
+:ReloadEnv
+for /f "tokens=1,2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" 2^>nul') do (
+    if /i not "%%A"=="PATH" (
+        if "%%B"=="REG_SZ" set "%%A=%%C"
+        if "%%B"=="REG_EXPAND_SZ" call set "%%A=%%C"
+    )
+)
+for /f "tokens=1,2*" %%A in ('reg query "HKCU\Environment" 2^>nul') do (
+    if /i not "%%A"=="PATH" (
+        if "%%B"=="REG_SZ" set "%%A=%%C"
+        if "%%B"=="REG_EXPAND_SZ" call set "%%A=%%C"
+    )
+)
+set "SYS_PATH="
+set "USR_PATH="
+for /f "tokens=1,2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do (
+    if /i "%%A"=="Path" call set "SYS_PATH=%%C"
+)
+for /f "tokens=1,2*" %%A in ('reg query "HKCU\Environment" /v Path 2^>nul') do (
+    if /i "%%A"=="Path" call set "USR_PATH=%%C"
+)
+if defined SYS_PATH if defined USR_PATH (
+    set "PATH=%SYS_PATH%;%USR_PATH%"
+) else if defined SYS_PATH (
+    set "PATH=%SYS_PATH%"
+) else if defined USR_PATH (
+    set "PATH=%USR_PATH%"
+)
+exit /b 0
+
+:Verify
+echo [3/3] Verifying Vulkan installation...
+call :CheckVulkanSdk
+if errorlevel 1 (
+    echo ERROR: A usable Vulkan SDK was not found. Check VULKAN_SDK and the SDK installation.
+    exit /b 1
+)
+
+echo VULKAN_SDK = %VULKAN_SDK%
+where vulkaninfo >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    echo SUCCESS: vulkaninfo found in PATH!
+    vulkaninfo --summary
+) else (
+    echo WARNING: vulkaninfo not found in PATH. Check %VULKAN_SDK%\Bin
     exit /b 1
 )
 
@@ -40,6 +121,22 @@ if not exist "%~dp0ThirdParty\OpenUsd_Build_Release\pxrConfig.cmake" (
     popd
 )
 
+REM The OpenUSD build may have succeeded even if the HgiVulkan build failed.
+if not exist "%~dp0ThirdParty\OpenUsd_Build_Release\lib\usd_hgiVulkan.dll" goto :BuildHgiVulkan
+if not exist "%~dp0ThirdParty\OpenUsd_Build_Release\lib\usd_hgiVulkan.lib" goto :BuildHgiVulkan
+if not exist "%~dp0ThirdParty\OpenUsd_Build_Release\lib\usd\hgiVulkan\resources\plugInfo.json" goto :BuildHgiVulkan
+goto :HgiVulkanReady
+
+:BuildHgiVulkan
+echo HgiVulkan build not found. Starting BuildHgiVulkan.bat...
+call "%~dp0ThirdParty\BuildHgiVulkan.bat"
+if errorlevel 1 (
+    echo ERROR: HgiVulkan build failed.
+    pause
+    exit /b 1
+)
+
+:HgiVulkanReady
 echo  [94mSearch for VCPKG:[0m
 
 WHERE vcpkg
