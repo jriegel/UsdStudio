@@ -21,15 +21,36 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [1/3] Installing LunarG Vulkan SDK via WinGet...
+echo [1/3] Checking for an installed Vulkan SDK...
+set "DETECTED_VULKAN_SDK="
+call :CheckVulkanSdk
+if not errorlevel 1 set "DETECTED_VULKAN_SDK=%VULKAN_SDK%"
+endlocal & set "DETECTED_VULKAN_SDK=%DETECTED_VULKAN_SDK%"
+call :ReloadEnv
+if defined DETECTED_VULKAN_SDK set "VULKAN_SDK=%DETECTED_VULKAN_SDK%"
+call :CheckVulkanSdk
+if not errorlevel 1 goto :VulkanInstalled
+
+echo [2/3] Installing LunarG Vulkan SDK via WinGet...
 winget install -e --id KhronosGroup.VulkanSDK --accept-package-agreements --accept-source-agreements
 if %ERRORLEVEL% neq 0 (
     echo Note: WinGet returned code %ERRORLEVEL% ^(it may already be installed^). Continuing...
 )
 
-echo [2/3] Reloading environment variables from Registry...
-endlocal & call :ReloadEnv
+echo Reloading environment variables from Registry...
+call :ReloadEnv
 goto :Verify
+
+:VulkanInstalled
+echo [2/3] Vulkan SDK found at %VULKAN_SDK%; skipping WinGet.
+goto :Verify
+
+:CheckVulkanSdk
+if not defined VULKAN_SDK exit /b 1
+if not exist "%VULKAN_SDK%\Include\vulkan\vulkan.h" exit /b 1
+if not exist "%VULKAN_SDK%\Lib\vulkan-1.lib" exit /b 1
+if not exist "%VULKAN_SDK%\Lib\shaderc_combined.lib" exit /b 1
+exit /b 0
 
 :ReloadEnv
 for /f "tokens=1,2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" 2^>nul') do (
@@ -63,8 +84,9 @@ exit /b 0
 
 :Verify
 echo [3/3] Verifying Vulkan installation...
-if not defined VULKAN_SDK (
-    echo ERROR: VULKAN_SDK is still not set. Try opening a new terminal.
+call :CheckVulkanSdk
+if errorlevel 1 (
+    echo ERROR: A usable Vulkan SDK was not found. Check VULKAN_SDK and the SDK installation.
     exit /b 1
 )
 
@@ -96,16 +118,25 @@ if not exist "%~dp0ThirdParty\OpenUsd_Build_Release\pxrConfig.cmake" (
         pause
         exit /b 1
     )
-    call BuildHgiVulkan.bat
-    if errorlevel 1 (
-        popd
-        echo ERROR: HgiVulkan build failed.
-        pause
-        exit /b 1
-    )
     popd
 )
 
+REM The OpenUSD build may have succeeded even if the HgiVulkan build failed.
+if not exist "%~dp0ThirdParty\OpenUsd_Build_Release\lib\usd_hgiVulkan.dll" goto :BuildHgiVulkan
+if not exist "%~dp0ThirdParty\OpenUsd_Build_Release\lib\usd_hgiVulkan.lib" goto :BuildHgiVulkan
+if not exist "%~dp0ThirdParty\OpenUsd_Build_Release\lib\usd\hgiVulkan\resources\plugInfo.json" goto :BuildHgiVulkan
+goto :HgiVulkanReady
+
+:BuildHgiVulkan
+echo HgiVulkan build not found. Starting BuildHgiVulkan.bat...
+call "%~dp0ThirdParty\BuildHgiVulkan.bat"
+if errorlevel 1 (
+    echo ERROR: HgiVulkan build failed.
+    pause
+    exit /b 1
+)
+
+:HgiVulkanReady
 echo  [94mSearch for VCPKG:[0m
 
 WHERE vcpkg
