@@ -1,4 +1,6 @@
 @echo off
+setlocal EnableDelayedExpansion
+
 REM SetupScript Juergen Riegel 
 echo  [32mSetup the build environment.[0m
 
@@ -19,6 +21,63 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo [1/3] Installing LunarG Vulkan SDK via WinGet...
+winget install -e --id KhronosGroup.VulkanSDK --accept-package-agreements --accept-source-agreements
+if %ERRORLEVEL% neq 0 (
+    echo Note: WinGet returned code %ERRORLEVEL% ^(it may already be installed^). Continuing...
+)
+
+echo [2/3] Reloading environment variables from Registry...
+endlocal & call :ReloadEnv
+goto :Verify
+
+:ReloadEnv
+for /f "tokens=1,2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" 2^>nul') do (
+    if /i not "%%A"=="PATH" (
+        if "%%B"=="REG_SZ" set "%%A=%%C"
+        if "%%B"=="REG_EXPAND_SZ" call set "%%A=%%C"
+    )
+)
+for /f "tokens=1,2*" %%A in ('reg query "HKCU\Environment" 2^>nul') do (
+    if /i not "%%A"=="PATH" (
+        if "%%B"=="REG_SZ" set "%%A=%%C"
+        if "%%B"=="REG_EXPAND_SZ" call set "%%A=%%C"
+    )
+)
+set "SYS_PATH="
+set "USR_PATH="
+for /f "tokens=1,2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do (
+    if /i "%%A"=="Path" call set "SYS_PATH=%%C"
+)
+for /f "tokens=1,2*" %%A in ('reg query "HKCU\Environment" /v Path 2^>nul') do (
+    if /i "%%A"=="Path" call set "USR_PATH=%%C"
+)
+if defined SYS_PATH if defined USR_PATH (
+    set "PATH=%SYS_PATH%;%USR_PATH%"
+) else if defined SYS_PATH (
+    set "PATH=%SYS_PATH%"
+) else if defined USR_PATH (
+    set "PATH=%USR_PATH%"
+)
+exit /b 0
+
+:Verify
+echo [3/3] Verifying Vulkan installation...
+if not defined VULKAN_SDK (
+    echo ERROR: VULKAN_SDK is still not set. Try opening a new terminal.
+    exit /b 1
+)
+
+echo VULKAN_SDK = %VULKAN_SDK%
+where vulkaninfo >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    echo SUCCESS: vulkaninfo found in PATH!
+    vulkaninfo --summary
+) else (
+    echo WARNING: vulkaninfo not found in PATH. Check %VULKAN_SDK%\Bin
+    exit /b 1
+)
+
 REM Check for pxrConfig.cmake, not just the directory: an interrupted build_usd.py run
 REM leaves the directory behind with only half of the dependencies in it, and
 REM BuildUsd.bat recreates it from scratch.
@@ -34,6 +93,13 @@ if not exist "%~dp0ThirdParty\OpenUsd_Build_Release\pxrConfig.cmake" (
     if errorlevel 1 (
         popd
         echo ERROR: OpenUSD build failed.
+        pause
+        exit /b 1
+    )
+    call BuildHgiVulkan.bat
+    if errorlevel 1 (
+        popd
+        echo ERROR: HgiVulkan build failed.
         pause
         exit /b 1
     )
