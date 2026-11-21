@@ -7,8 +7,7 @@
 # hours.  This mini project keeps the Vulkan backend a small, targeted add-on
 # that is installed back into the same tree (see ThirdParty/BuildHgiVulkan.bat).
 #
-# Requires VULKAN_SDK to point at an installed Vulkan SDK; vulkan-1 and
-# shaderc_combined are taken from there.
+# Requires VULKAN_SDK to point at an installed Vulkan SDK.
 
 cmake_minimum_required(VERSION 3.30)
 
@@ -42,6 +41,17 @@ endif()
 # The imported pxr target "garch" references OpenGL::GL in its interface.
 find_package(OpenGL REQUIRED)
 find_package(pxr CONFIG REQUIRED PATHS "${OPENUSD_ROOT}" NO_DEFAULT_PATH)
+
+function(check_openusd_version)
+  set(installed_version "${PXR_MAJOR_VERSION}.${PXR_MINOR_VERSION}.${PXR_PATCH_VERSION}")
+  include("${OPENUSD_SRC}/cmake/defaults/Version.cmake")
+  set(source_version "${PXR_MAJOR_VERSION}.${PXR_MINOR_VERSION}.${PXR_PATCH_VERSION}")
+  if(NOT source_version STREQUAL installed_version)
+    message(FATAL_ERROR
+      "OpenUSD source version ${source_version} does not match installed version ${installed_version}.")
+  endif()
+endfunction()
+check_openusd_version()
 
 # CONFIGURE_DEPENDS so upstream source changes show up on a rebuild.
 file(GLOB HGIVULKAN_SOURCES CONFIGURE_DEPENDS "${OPENUSD_SRC}/pxr/imaging/hgiVulkan/*.cpp")
@@ -89,22 +99,21 @@ foreach(tgt usd_hgi usd_hgiInterop)
     "${OPENUSD_SRC}"
     "${CMAKE_CURRENT_SOURCE_DIR}/../vma/include")
   target_compile_definitions(${tgt} PRIVATE
-    WIN32
     NDEBUG
     PXR_GL_SUPPORT_ENABLED
     PXR_MATERIALX_SUPPORT_ENABLED
     PXR_VULKAN_SUPPORT_ENABLED
     PXR_BUILD_LOCATION=usd
-    PXR_PLUGIN_BUILD_LOCATION=../plugin/usd
-    BOOST_ALL_DYN_LINK
-    BOOST_ALL_NO_LIB
-    OPENEXR_DLL
-    WIN32_LEAN_AND_MEAN
-    NOMINMAX
-    _CRT_SECURE_NO_WARNINGS
-    _CRT_NONSTDC_NO_WARNINGS
-    _SCL_SECURE_NO_WARNINGS
-    _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
+    PXR_PLUGIN_BUILD_LOCATION=../plugin/usd)
+  if(WIN32)
+    target_compile_definitions(${tgt} PRIVATE
+      WIN32 BOOST_ALL_DYN_LINK BOOST_ALL_NO_LIB OPENEXR_DLL
+      WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS
+      _CRT_NONSTDC_NO_WARNINGS _SCL_SECURE_NO_WARNINGS
+      _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
+  elseif(UNIX AND NOT APPLE)
+    set_target_properties(${tgt} PROPERTIES INSTALL_RPATH "$ORIGIN")
+  endif()
   if(MSVC)
     target_compile_options(${tgt} PRIVATE /MP /Zc:__cplusplus /bigobj /Zm150)
   endif()
@@ -120,7 +129,12 @@ target_compile_definitions(usd_hgiInterop PRIVATE
 
 # Same libraries the packages' own CMakeLists.txt ask for.
 target_link_libraries(usd_hgi PRIVATE arch gf hio plug tf trace)
-target_link_libraries(usd_hgiInterop PRIVATE garch gf hgi tf vt Vulkan::Vulkan)
+if(WIN32)
+  set(HGI_LINK_TARGET hgi)
+else()
+  set(HGI_LINK_TARGET usd_hgi)
+endif()
+target_link_libraries(usd_hgiInterop PRIVATE garch gf ${HGI_LINK_TARGET} tf vt Vulkan::Vulkan)
 
 add_library(usd_hgiVulkan SHARED ${HGIVULKAN_SOURCES})
 set_target_properties(usd_hgiVulkan PROPERTIES
@@ -136,7 +150,6 @@ target_include_directories(usd_hgiVulkan PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/../vma/include")
 
 target_compile_definitions(usd_hgiVulkan PRIVATE
-  WIN32
   NDEBUG
   # Mirror the defines the installed pxr libraries were built with; anything
   # that could change their ABI has to match.
@@ -145,19 +158,20 @@ target_compile_definitions(usd_hgiVulkan PRIVATE
   PXR_VULKAN_SUPPORT_ENABLED
   PXR_BUILD_LOCATION=usd
   PXR_PLUGIN_BUILD_LOCATION=../plugin/usd
-  BOOST_ALL_DYN_LINK
-  BOOST_ALL_NO_LIB
-  OPENEXR_DLL
-  WIN32_LEAN_AND_MEAN
-  NOMINMAX
-  _CRT_SECURE_NO_WARNINGS
-  _CRT_NONSTDC_NO_WARNINGS
-  _SCL_SECURE_NO_WARNINGS
-  _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING
   MFB_PACKAGE_NAME=hgiVulkan
   MFB_ALT_PACKAGE_NAME=hgiVulkan
   MFB_PACKAGE_MODULE=HgiVulkan
   HGIVULKAN_EXPORTS)
+
+if(WIN32)
+  target_compile_definitions(usd_hgiVulkan PRIVATE
+    WIN32 BOOST_ALL_DYN_LINK BOOST_ALL_NO_LIB OPENEXR_DLL
+    WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS
+    _CRT_NONSTDC_NO_WARNINGS _SCL_SECURE_NO_WARNINGS
+    _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
+elseif(UNIX AND NOT APPLE)
+  set_target_properties(usd_hgiVulkan PROPERTIES INSTALL_RPATH "$ORIGIN")
+endif()
 
 if(MSVC)
   target_compile_options(usd_hgiVulkan PRIVATE /MP /Zc:__cplusplus /bigobj /Zm150)
@@ -166,11 +180,17 @@ endif()
 # Same libraries hgiVulkan's own CMakeLists.txt asks for.
 target_link_libraries(usd_hgiVulkan PRIVATE
   arch
-  hgi
+  ${HGI_LINK_TARGET}
   tf
   trace
   Vulkan::Vulkan
   Vulkan::shaderc_combined)
+
+if(UNIX AND NOT APPLE)
+  find_package(X11 REQUIRED)
+  target_link_libraries(usd_hgiVulkan PRIVATE X11::X11)
+  target_link_options(usd_hgiVulkan PRIVATE "LINKER:-z,defs")
+endif()
 
 target_link_libraries(usd_hgiInterop PRIVATE usd_hgiVulkan)
 
@@ -184,7 +204,9 @@ install(TARGETS usd_hgi usd_hgiInterop usd_hgiVulkan
 # other pxr plugin resources; pxr_library() would expand @PLUG_INFO_*@ macros,
 # replicate the installed form (cf. lib/usd/hgiGL/resources/plugInfo.json).
 file(READ "${OPENUSD_SRC}/pxr/imaging/hgiVulkan/plugInfo.json" HGIVULKAN_PLUGINFO)
-string(REPLACE "@PLUG_INFO_LIBRARY_PATH@" "../../usd_hgiVulkan.dll" HGIVULKAN_PLUGINFO "${HGIVULKAN_PLUGINFO}")
+string(REPLACE "@PLUG_INFO_LIBRARY_PATH@"
+  "../../${CMAKE_SHARED_LIBRARY_PREFIX}usd_hgiVulkan${CMAKE_SHARED_LIBRARY_SUFFIX}"
+  HGIVULKAN_PLUGINFO "${HGIVULKAN_PLUGINFO}")
 string(REPLACE "@PLUG_INFO_RESOURCE_PATH@" "resources" HGIVULKAN_PLUGINFO "${HGIVULKAN_PLUGINFO}")
 string(REPLACE "@PLUG_INFO_ROOT@" ".." HGIVULKAN_PLUGINFO "${HGIVULKAN_PLUGINFO}")
 file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/plugInfo/usd/hgiVulkan/resources/plugInfo.json"

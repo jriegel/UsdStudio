@@ -170,10 +170,11 @@ backend, install `^libxcb.*-dev`, `libx11-xcb-dev`, `libglu1-mesa-dev`,
 `libxrender-dev`, `libxi-dev`, `libxkbcommon-dev`, `libxkbcommon-x11-dev`,
 and `libegl1-mesa-dev`.
 The Hydra viewer requires a Vulkan-capable driver and the Vulkan SDK,
-including shaderc and the Vulkan utility headers (on Debian/Ubuntu,
-`vulkan-utility-libraries-dev` supplies `vk_enum_string_helper.h`). Set
-`VULKAN_SDK` to the SDK installation before building
-OpenUSD and configuring the GUI. Qt must include Vulkan support, Qt Quick,
+including shaderc and the Vulkan utility headers. On Linux x86-64, `Setup.sh`
+downloads the pinned LunarG SDK into `ThirdParty/VulkanSDK`, checks its SHA-256
+checksum, and reuses it on subsequent runs. It does not install GPU drivers.
+An existing SDK can be selected with `VULKAN_SDK` instead; on other platforms,
+install and select a suitable SDK manually. Qt must include Vulkan support, Qt Quick,
 ShaderTools, and the matching Qt Gui private development headers. The
 repository supplies the Vulkan Memory Allocator headers used by OpenUSD.
 Follow the SDK's environment setup instructions so its runtime libraries
@@ -197,10 +198,15 @@ rather than deleting them. Arguments are passed to OpenUSD's build script, for
 example `./ThirdParty/BuildUsd.sh --jobs 4`. Python bindings are installed
 inside the OpenUSD installation directory.
 
-The GUI needs OpenUSD built with USD Imaging and Vulkan, which
-`BuildUsd.sh` enables. If an older OpenUSD installation exists, Setup does
-not rebuild it automatically: run `./ThirdParty/BuildUsd.sh` first, then
-rerun `./Setup.sh`.
+The GUI needs OpenUSD with USD Imaging and HgiVulkan. `BuildUsd.sh` enables
+both. To add or rebuild HgiVulkan against an existing OpenUSD installation
+with USD Imaging, run `./ThirdParty/BuildHgiVulkan.sh`; it rebuilds and
+replaces Hgi and HgiInterop as well as HgiVulkan. Stop applications using
+that installation first, and use matching OpenUSD sources. If USD Imaging is
+missing, rebuild OpenUSD with `./ThirdParty/BuildUsd.sh` and rerun Setup.
+Likewise, rebuild OpenUSD if its CMake package exports a native HgiVulkan
+target but the corresponding library is missing.
+Both scripts automatically find the SDK installed by Setup.
 
 The executables are in `UnixBuild/bin`. Unlike the Windows build, Qt and
 OpenUSD runtimes are not deployed alongside the GUI executable.

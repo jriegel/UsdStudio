@@ -6,3 +6,4 @@ OpenUsd_Build_Release
 OpenUsd_Build_Debug
 vcpkg_installed/
 ThirdParty/HgiVulkan_Build/
+ThirdParty/VulkanSDK/

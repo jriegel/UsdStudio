@@ -27,6 +27,11 @@ if [[ ! -f "$toolchain" ]]; then
     exit 1
 fi
 
+if [[ "$(uname -s)" == Linux ]]; then
+    source "$root_dir/ThirdParty/VulkanSdk.sh"
+    install_vulkan_sdk
+fi
+
 if [[ ! -f "$root_dir/ThirdParty/OpenUsd_Build_Release/pxrConfig.cmake" ]]; then
     echo "OpenUSD installation not found. Building it now..."
     "$root_dir/ThirdParty/BuildUsd.sh"

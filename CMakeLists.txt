@@ -10,6 +10,11 @@ option(BUILD_GUI "Build with GUI" ON )
 
 enable_testing()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_test(NAME VulkanSdkTests
+    COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/Tests/VulkanSdkTests.sh")
+endif()
+
 # Find includes in corresponding build directories
 set(CMAKE_INCLUDE_CURRENT_DIR ON) 
 
@@ -82,9 +87,17 @@ if(BUILD_GUI)
       IMPORTED_LOCATION "${OPENUSD_ROOT}/lib/usd_hgiVulkan.dll")
     target_include_directories(UsdStudioHgiVulkan INTERFACE "${OPENUSD_ROOT}/include")
     set(USDSTUDIO_HGI_VULKAN UsdStudioHgiVulkan)
+  elseif(UNIX AND NOT APPLE AND EXISTS "${OPENUSD_ROOT}/lib/libusd_hgiVulkan.so")
+    find_package(Vulkan REQUIRED COMPONENTS shaderc_combined)
+    add_library(UsdStudioHgiVulkan SHARED IMPORTED GLOBAL)
+    set_target_properties(UsdStudioHgiVulkan PROPERTIES
+      IMPORTED_LOCATION "${OPENUSD_ROOT}/lib/libusd_hgiVulkan.so")
+    target_include_directories(UsdStudioHgiVulkan INTERFACE "${OPENUSD_ROOT}/include")
+    target_link_libraries(UsdStudioHgiVulkan INTERFACE Vulkan::Vulkan)
+    set(USDSTUDIO_HGI_VULKAN UsdStudioHgiVulkan)
   else()
     message(FATAL_ERROR
-      "OpenUSD is missing HgiVulkan. Rebuild it with Vulkan support; see Build.md.")
+      "OpenUSD is missing HgiVulkan. Build it separately or rebuild OpenUSD with Vulkan support; see Build.md.")
   endif()
 
   add_library(UsdStudioImaging INTERFACE)
