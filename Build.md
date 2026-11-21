@@ -17,7 +17,9 @@ Setup.bat
 
 Setup builds OpenUSD if its installation directory is absent, then configures
 CMake in `WinBuild\VS2026`, leaving an existing VS 2022 `WinBuild` cache
-untouched. Alternatively, if OpenUSD is already built, configure
+untouched. The Windows OpenUSD build includes USD imaging but omits the
+standalone `usdview` application, so PySide is not required. Alternatively, if
+OpenUSD is already built, configure
 CMake directly (adjust the vcpkg path):
 
 ```bat
