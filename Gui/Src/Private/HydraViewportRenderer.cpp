@@ -1,3 +1,14 @@
+// OpenUSD must select the Vulkan platform before Qt includes Vulkan headers.
+#include "pxr/imaging/hgiVulkan/vulkan.h"
+
+// Vulkan's Xlib platform headers define macros that collide with Qt and USD.
+#ifdef Bool
+#undef Bool
+#endif
+#ifdef None
+#undef None
+#endif
+
 #include "HydraViewportRenderer.h"
 
 #include "../Public/HydraViewportItem.h"
@@ -19,13 +30,6 @@
 #include <rhi/qshader.h>
 
 #include "pxr/imaging/hgiVulkan/hgi.h"
-// Vulkan's Xlib platform headers define macros that collide with Qt and USD.
-#ifdef Bool
-#undef Bool
-#endif
-#ifdef None
-#undef None
-#endif
 
 PXR_NAMESPACE_USING_DIRECTIVE
 
@@ -50,6 +54,11 @@ QShader loadShader(const char* resource)
 HydraViewportRenderer::HydraViewportRenderer(HydraViewportItem* item)
     : _item(item)
 {
+    static const bool shadersInitialized = [] {
+        Q_INIT_RESOURCE(hydra_viewer_shaders);
+        return true;
+    }();
+    (void)shadersInitialized;
 }
 
 HydraViewportRenderer::~HydraViewportRenderer() = default;

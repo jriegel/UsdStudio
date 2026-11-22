@@ -81,14 +81,33 @@ target_link_libraries (UsdStudioGuiLib
 		UsdStudioImaging
 )
 
-# Hydra viewport composite shaders (GLSL -> .qsb for every RHI backend),
-# embedded through the auto-generated rcc into :/usdstudio/shaders/.
-qt_add_shaders(UsdStudioGuiLib "hydra_viewer_shaders"
-	PREFIX "/usdstudio"
-	FILES
-		Shaders/viewport.vert
-		Shaders/viewport.frag
-)
+# Compile the shaders and embed them in the static library itself.
+set(shader_resource_dir "${CMAKE_CURRENT_BINARY_DIR}/hydra_shaders")
+file(MAKE_DIRECTORY "${shader_resource_dir}")
+foreach(shader IN ITEMS viewport.vert viewport.frag)
+	set(shader_source "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/${shader}")
+	set(shader_output "${shader_resource_dir}/${shader}.qsb")
+	add_custom_command(
+		OUTPUT "${shader_output}"
+		COMMAND Qt6::qsb --glsl "100es,120,150" --hlsl 50 --msl 12
+			-o "${shader_output}" --depfile "${shader_output}.d" "${shader_source}"
+		DEPENDS "${shader_source}" Qt6::qsb
+		DEPFILE "${shader_output}.d"
+		VERBATIM
+	)
+endforeach()
+set(shader_qrc "${shader_resource_dir}/hydra_viewer_shaders.qrc")
+file(CONFIGURE OUTPUT "${shader_qrc}" CONTENT [=[
+<RCC><qresource prefix="/usdstudio">
+<file alias="Shaders/viewport.vert.qsb">viewport.vert.qsb</file>
+<file alias="Shaders/viewport.frag.qsb">viewport.frag.qsb</file>
+</qresource></RCC>
+]=])
+qt_add_resources(shader_resources "${shader_qrc}")
+target_sources(UsdStudioGuiLib PRIVATE ${shader_resources}
+	Shaders/viewport.vert Shaders/viewport.frag)
+set_source_files_properties(Shaders/viewport.vert Shaders/viewport.frag
+	PROPERTIES HEADER_FILE_ONLY TRUE)
 
 #target_include_directories (UsdStudioGuiLib PUBLIC	)
 

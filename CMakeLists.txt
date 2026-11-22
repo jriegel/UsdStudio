@@ -4,6 +4,12 @@ cmake_minimum_required(VERSION 3.30.0)
 
 project(UsdStudio)
 
+get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(is_multi_config)
+  set(CMAKE_CONFIGURATION_TYPES "Release;RelWithDebInfo" CACHE STRING
+    "Build configurations compatible with the OpenUSD release build" FORCE)
+endif()
+
 add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
 
 option(BUILD_GUI "Build with GUI" ON )

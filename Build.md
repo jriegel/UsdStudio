@@ -30,6 +30,10 @@ set "VCPKG_ROOT=C:\Tools\vcpkg"
 cmake -S . -B WinBuild\VS2026 -G "Visual Studio 18 2026" -A x64 "-DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
 ```
 
+Multi-configuration generators offer only `Release` and `RelWithDebInfo`,
+matching the OpenUSD release build. Reconfigure an existing build to update its
+configuration list.
+
 Build the Release configuration:
 
 ```bat

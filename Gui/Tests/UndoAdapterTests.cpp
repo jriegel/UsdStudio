@@ -7,8 +7,12 @@
 
 #include <UndoCommandAdapter.h>
 
+#include "../Src/Private/HydraViewportRenderer.h"
+
 #include <Commands/ICommand.h>
+#include <QFile>
 #include <QUndoStack>
+#include <rhi/qshader.h>
 
 #include <iostream>
 #include <memory>
@@ -49,6 +53,14 @@ private:
 
 int main()
 {
+    HydraViewportRenderer renderer(nullptr);
+    for (const char* path : {":/usdstudio/Shaders/viewport.vert.qsb",
+                             ":/usdstudio/Shaders/viewport.frag.qsb"}) {
+        QFile shaderFile(QString::fromLatin1(path));
+        const bool opened = shaderFile.open(QIODevice::ReadOnly);
+        check(opened && QShader::fromSerialized(shaderFile.readAll()).isValid(), path);
+    }
+
     QUndoStack stack;
     Counts counts;
     auto command = std::make_unique<CountingCommand>(counts);
@@ -70,7 +82,7 @@ int main()
     stack.clear();
     check(counts.executes == 2 && counts.undos == 1, "clear does not replay commands");
 
-    std::cout << (failures == 0 ? "\nAll undo adapter tests passed.\n"
+    std::cout << (failures == 0 ? "\nAll GUI tests passed.\n"
                                 : "\n" + std::to_string(failures) + " test(s) FAILED.\n");
     return failures == 0 ? 0 : 1;
 }

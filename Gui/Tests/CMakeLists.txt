@@ -14,6 +14,8 @@ target_link_libraries(UsdStudioGuiTests PRIVATE
 	UsdStudioAppLib
 	Qt6::Core
 	Qt6::Gui
+	Qt6::GuiPrivate
+	Qt6::Quick
 )
 
 set_target_properties(UsdStudioGuiTests       PROPERTIES
